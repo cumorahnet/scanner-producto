@@ -566,7 +566,7 @@ async function analyzePhoto() {
 
     if (!resp.ok) {
       const err = await resp.json();
-      throw new Error(err.error?.message || 'Error de API');
+      throw new Error(JSON.stringify(err.error || err));
     }
 
     const data = await resp.json();
