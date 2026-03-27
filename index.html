@@ -543,7 +543,7 @@ async function analyzePhoto() {
 
   try {
     // Comprimir imagen antes de enviar
-    const compressedImage = await compressImage(capturedImage, 800, 0.7);
+    const compressedImage = await compressImage(capturedImage, 1200, 0.88);
     const base64 = compressedImage.split(',')[1];
     const mimeType = 'image/jpeg';
 
@@ -555,7 +555,7 @@ async function analyzePhoto() {
         body: JSON.stringify({
           contents: [{ parts: [
             { inline_data: { mime_type: mimeType, data: base64 } },
-            { text: 'Eres un lector de productos. Analiza esta imagen y extrae: 1) El nombre del producto (marca y nombre), 2) La presentación (tamaño, cantidad, volumen, peso, variante o sabor). Responde ÚNICAMENTE en JSON puro sin markdown: {"nombre":"...","presentacion":"..."}. Si no identificas algún campo usa "No identificado".' }
+            { text: 'Eres un experto lector de etiquetas de productos. Analiza esta imagen con mucho detalle aunque haya texto pequeño, brillos o reflejos en el empaque. Extrae: 1) El nombre del producto incluyendo marca, 2) La presentación: busca el peso, volumen, cantidad, sabor o variante — revisa toda la etiqueta incluyendo partes pequeñas. Si algún texto no es legible por brillo o desenfoque, infiere el dato por contexto (tipo de producto, marca, forma del empaque). Responde ÚNICAMENTE en JSON puro sin markdown ni explicaciones: {"nombre":"...","presentacion":"..."}. NUNCA uses "No identificado", siempre da tu mejor estimación.' }
           ]}],
           generationConfig: { temperature: 0.1, maxOutputTokens: 300 }
         })
