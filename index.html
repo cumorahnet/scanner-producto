@@ -3,94 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Pro 6.1 — Antonio Hernandez</title>
-
+<title>Scanner Express — Antonio Hernandez</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
 <style>
-  :root { --bg: #0a0a0f; --surface: #13131c; --border: #2a2a45; --accent: #00e5c0; --text: #e8e8f0; --muted: #6b6b8a; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font-family:monospace; overflow-x:hidden; }
-
-  #lens-view, #result-view, #analyzing-overlay, #key-screen, #search-modal, #edit-modal { position:fixed; inset:0; }
-  #key-screen { background:var(--bg); z-index:200; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; gap:15px; }
-  #lens-view { background:#000; display:flex; flex-direction:column; z-index:10; }
-  #camera-feed { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  
-  .ui-top { position:relative; z-index:20; padding:50px 20px; background:linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); display:flex; justify-content:space-between; align-items:center; }
-  .ui-bottom { position:absolute; bottom:0; left:0; right:0; z-index:20; padding:40px 20px; background:linear-gradient(to top, rgba(0,0,0,0.7), transparent); display:flex; flex-direction:column; align-items:center; gap:10px; }
-  .btn-capture { width:80px; height:80px; border-radius:50%; border:5px solid #fff; background:rgba(255,255,255,0.2); cursor:pointer; }
-
-  .input-f { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; color:#fff; margin-bottom:15px; font-family:monospace; outline:none; }
-  .btn { padding:12px; border-radius:10px; border:none; font-weight:bold; cursor:pointer; font-family:monospace; width:100%; margin-top:10px; }
-  .btn-primary { background:var(--accent); color:#000; }
-  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
-
-  #search-modal, #edit-modal { background:var(--bg); z-index:250; display:none; flex-direction:column; padding:20px; overflow-y:auto; }
-  .search-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-  .search-card img { width:60px; height:60px; object-fit:cover; border-radius:6px; background:#000; }
-
-  #analyzing-overlay { background:rgba(0,0,0,0.85); z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center; }
-  .spinner { width:40px; height:40px; border:4px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1c1c2e; border:1px solid var(--accent); padding:12px; border-radius:8px; display:none; z-index:1000; font-size:11px; text-align:center; }
+  :root { --bg: #0a0a0f; --accent: #00e5c0; --text: #e8e8f0; }
+  body { background: var(--bg); color: var(--text); font-family: monospace; margin: 0; overflow: hidden; }
+  #camera-feed { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ui-overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 20px; pointer-events: none; }
+  .btn-capture { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.2); pointer-events: auto; align-self: center; }
+  #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; }
+  .input-f { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 10px; font-family: monospace; }
+  .btn { padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; display: none; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
 
-<div id="key-screen" style="display:none;">
-  <h2 style="color:var(--accent);">CONFIGURACIÓN IA</h2>
-  <input id="key-input" type="password" class="input-f" placeholder="Pega tu API Key de Gemini">
-  <button class="btn btn-primary" onclick="saveKey()">GUARDAR Y EMPEZAR</button>
+<video id="camera-feed" autoplay playsinline muted></video>
+
+<div class="ui-overlay">
+  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS</div>
+  <button class="btn-capture" onclick="capture()"></button>
 </div>
 
-<div id="lens-view">
-  <video id="camera-feed" autoplay playsinline muted></video>
-  <div class="ui-top">
-    <div style="font-weight:bold; color:var(--accent);">SCANNER PRO v6.1</div>
-    <button class="btn-outline" onclick="openSearch()" style="width:auto; padding:5px 12px;">🔍 INVENTARIO</button>
-  </div>
-  <div class="ui-bottom">
-    <button class="btn-capture" onclick="captureAndAnalyze()"></button>
-    <button onclick="resetKey()" style="color:#ff4466; background:none; border:none; font-size:10px; margin-top:10px;">BORRAR LLAVE</button>
-  </div>
-</div>
-
-<div id="result-view" style="display:none; background:var(--bg); z-index:50; flex-direction:column;">
+<div id="result-view">
   <img id="result-photo" style="width:100%; height:250px; object-fit:cover;">
-  <div style="padding:20px;">
-    <label style="font-size:10px; color:var(--muted);">DESCRIPCIÓN</label>
+  <div style="padding: 20px;">
     <textarea id="field-desc" class="input-f" rows="3"></textarea>
-    <div style="display:flex; gap:10px;">
-      <div style="flex:1;"><label style="font-size:10px; color:var(--muted);">COSTO $</label><input type="number" id="field-costo" class="input-f"></div>
-      <div style="flex:1;"><label style="font-size:10px; color:var(--muted);">VENTA $</label><input type="number" id="field-venta" class="input-f"></div>
-    </div>
-    <button class="btn btn-primary" id="btn-save" onclick="saveData()">GUARDAR</button>
-    <button class="btn btn-outline" onclick="closeResult()">CANCELAR</button>
+    <input type="number" id="field-venta" class="input-f" placeholder="Precio Venta $">
+    
+    <button class="btn" style="background:var(--accent); color:#000;" onclick="shareEverything()">📲 ENVIAR POR WHATSAPP</button>
+    
+    <button class="btn" style="background:#2a2a45; color:#fff;" onclick="saveAndClose()">SOLO GUARDAR EN NUBE</button>
+    <button class="btn" style="background:transparent; color:#ff4466;" onclick="location.reload()">CANCELAR</button>
   </div>
 </div>
 
-<div id="search-modal">
-  <h2 style="color:var(--accent); margin-bottom:15px;">📦 INVENTARIO</h2>
-  <input type="text" id="search-input" class="input-f" placeholder="Buscar..." oninput="runSearch()">
-  <div id="search-results"></div>
-  <button class="btn btn-outline" onclick="closeSearch()">CERRAR</button>
-</div>
-
-<div id="edit-modal">
-  <h2 style="color:var(--accent); margin-bottom:15px;">✏️ EDITAR PRECIO</h2>
-  <p id="edit-label" style="font-size:12px; margin-bottom:15px; color:var(--muted);"></p>
-  <input type="hidden" id="edit-id">
-  <input type="number" id="edit-costo" class="input-f" placeholder="Precio Anaquel">
-  <input type="number" id="edit-venta" class="input-f" placeholder="Precio Venta">
-  <button class="btn btn-primary" onclick="updatePrices()">ACTUALIZAR</button>
-  <button class="btn btn-outline" onclick="closeEdit()">CANCELAR</button>
-</div>
-
-<div id="analyzing-overlay"><div class="spinner"></div><p style="margin-top:15px;">ANALIZANDO...</p></div>
-<div id="toast" class="toast"></div>
+<div id="loader">⚙️ PROCESANDO...</div>
 
 <script>
 const firebaseConfig = {
@@ -101,26 +52,18 @@ const firebaseConfig = {
   messagingSenderId: "1093159890306",
   appId: "1:1093159890306:web:67211603ff99753207f39b"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
 let currentBlob = null;
 
-window.onload = () => {
-  if (!localStorage.getItem('gemini_key')) document.getElementById('key-screen').style.display = 'flex';
-  else startCamera();
-};
-
-function saveKey() { localStorage.setItem('gemini_key', document.getElementById('key-input').value.trim()); location.reload(); }
-function resetKey() { localStorage.removeItem('gemini_key'); location.reload(); }
-
-async function startCamera() {
+async function start() {
   const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
   document.getElementById('camera-feed').srcObject = s;
 }
+start();
 
-async function captureAndAnalyze() {
+function capture() {
   const v = document.getElementById('camera-feed');
   const canvas = document.createElement('canvas');
   canvas.width = v.videoWidth; canvas.height = v.videoHeight;
@@ -128,108 +71,66 @@ async function captureAndAnalyze() {
   canvas.toBlob(blob => {
     currentBlob = blob;
     document.getElementById('result-photo').src = URL.createObjectURL(blob);
-    const r = new FileReader();
-    r.onloadend = () => callIA(r.result.split(',')[1]);
-    r.readAsDataURL(blob);
+    analyze(blob);
   }, 'image/jpeg', 0.8);
 }
 
-async function callIA(base64) {
-  document.getElementById('analyzing-overlay').style.display = 'flex';
-  const key = localStorage.getItem('gemini_key');
-  try {
+async function analyze(blob) {
+  document.getElementById('loader').style.display = 'flex';
+  const reader = new FileReader();
+  reader.onloadend = async () => {
+    const base64 = reader.result.split(',')[1];
+    const key = localStorage.getItem('gemini_key') || prompt("Ingresa tu API Key:");
+    if(key) localStorage.setItem('gemini_key', key);
+
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`, {
       method: 'POST',
-      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Responde SOLO el nombre del producto en MAYÚSCULAS." }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Dime marca y producto. Solo el nombre en MAYÚSCULAS." }] }] })
     });
     const d = await res.json();
-    document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim().toUpperCase();
-    document.getElementById('analyzing-overlay').style.display = 'none';
+    document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
+    document.getElementById('loader').style.display = 'none';
     document.getElementById('result-view').style.display = 'flex';
-  } catch (e) { showToast("Error IA"); document.getElementById('analyzing-overlay').style.display = 'none'; }
+  };
+  reader.readAsDataURL(blob);
 }
 
-async function saveData() {
-  const btn = document.getElementById('btn-save');
-  btn.disabled = true;
-  try {
-    const path = `productos/${Date.now()}.jpg`;
-    const ref = storage.ref(path);
-    await ref.put(currentBlob);
-    const foto = await ref.getDownloadURL();
-    await db.collection("productos").add({
-      nombre: document.getElementById('field-desc').value,
-      nombre_busqueda: document.getElementById('field-desc').value.toLowerCase(),
-      precio_anaquel: parseFloat(document.getElementById('field-costo').value) || 0,
-      precio_venta: parseFloat(document.getElementById('field-venta').value) || 0,
-      foto, creado: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    showToast("✅ Guardado"); closeResult();
-  } catch (e) { showToast("Error al guardar"); }
-  btn.disabled = false;
+// ── ESTA FUNCIÓN ENVÍA LA FOTO REAL Y EL TEXTO SIN LINKS ──
+async function shareEverything() {
+  const nombre = document.getElementById('field-desc').value;
+  const precio = document.getElementById('field-venta').value;
+  const texto = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO: $${precio}`;
+
+  if (navigator.share) {
+    const file = new File([currentBlob], 'producto.jpg', { type: 'image/jpeg' });
+    try {
+      await navigator.share({
+        files: [file],
+        text: texto
+      });
+      // Después de compartir, guardamos en Firebase automáticamente para que no se pierda
+      saveAndClose();
+    } catch (e) {
+      alert("Error al compartir. Intenta guardar primero.");
+    }
+  } else {
+    alert("Tu navegador no soporta compartir archivos directamente.");
+  }
 }
 
-async function runSearch() {
-  const term = document.getElementById('search-input').value.toLowerCase();
-  const res = document.getElementById('search-results');
-  res.innerHTML = "";
-  let q = db.collection("productos").orderBy("creado", "desc").limit(12);
-  if (term) q = db.collection("productos").orderBy("nombre_busqueda").startAt(term).endAt(term + '\uf8ff');
-  const snap = await q.get();
-  snap.forEach(doc => {
-    const p = doc.data();
-    res.innerHTML += `
-      <div class="search-card">
-        <img src="${p.foto}">
-        <div style="flex:1">
-          <div style="font-size:11px; font-weight:bold;">${p.nombre}</div>
-          <div style="color:var(--accent); font-size:10px;">Venta: $${p.precio_venta}</div>
-        </div>
-        <button onclick="openEdit('${doc.id}', '${p.nombre}', ${p.precio_anaquel}, ${p.precio_venta})" style="background:none; border:none; font-size:16px;">✏️</button>
-        <button onclick="compartir('${p.nombre}', ${p.precio_venta}, '${p.foto}')" style="background:none; border:none; font-size:20px;">📲</button>
-      </div>`;
+async function saveAndClose() {
+  document.getElementById('loader').style.display = 'flex';
+  const path = `productos/${Date.now()}.jpg`;
+  const ref = storage.ref(path);
+  await ref.put(currentBlob);
+  const foto = await ref.getDownloadURL();
+  await db.collection("productos").add({
+    nombre: document.getElementById('field-desc').value,
+    precio_venta: parseFloat(document.getElementById('field-venta').value) || 0,
+    foto, creado: firebase.firestore.FieldValue.serverTimestamp()
   });
+  location.reload();
 }
-
-// COMPARTIR CORREGIDO: Abre la foto y envía el texto completo
-function compartir(n, v, f) {
-  showToast("📲 Preparando WhatsApp...");
-  // 1. Abrimos la foto para que el usuario pueda guardarla rápidamente
-  window.open(f, '_blank');
-  
-  // 2. Generamos el mensaje con toda la información
-  const textoWhatsApp = `*OFERTA RÁPIDA*\n\n*Producto:* ${n}\n*Precio:* $${v}\n\n📸 *Adjunta la foto que se acaba de abrir.*`;
-  
-  // 3. Abrimos WhatsApp después de un breve momento
-  setTimeout(() => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(textoWhatsApp)}`, '_blank');
-  }, 1200);
-}
-
-function openEdit(id, nombre, costo, venta) {
-  document.getElementById('edit-id').value = id;
-  document.getElementById('edit-label').innerText = nombre;
-  document.getElementById('edit-costo').value = costo;
-  document.getElementById('edit-venta').value = venta;
-  document.getElementById('edit-modal').style.display = 'flex';
-}
-
-async function updatePrices() {
-  const id = document.getElementById('edit-id').value;
-  try {
-    await db.collection("productos").doc(id).update({
-      precio_anaquel: parseFloat(document.getElementById('edit-costo').value),
-      precio_venta: parseFloat(document.getElementById('edit-venta').value)
-    });
-    showToast("✅ Actualizado"); closeEdit(); runSearch();
-  } catch (e) { showToast("Error"); }
-}
-
-function openSearch() { document.getElementById('search-modal').style.display = 'flex'; runSearch(); }
-function closeSearch() { document.getElementById('search-modal').style.display = 'none'; }
-function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
-function closeResult() { document.getElementById('result-view').style.display = 'none'; }
-function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
 </script>
 </body>
 </html>
