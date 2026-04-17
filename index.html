@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Pro — Antonio Hernandez</title>
-
+<title>Scanner Pro — Yautepec</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -13,95 +12,95 @@
   :root {
     --bg: #0a0a0f; --surface: #13131c; --border: #2a2a45;
     --accent: #00e5c0; --text: #e8e8f0; --muted: #6b6b8a;
+    --warn: #ff6b6b; --success: #00c896;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font-family:monospace; overflow: hidden; }
+  body { background:var(--bg); color:var(--text); font-family:monospace; }
 
-  /* Vistas */
-  #lens-view, #result-view, #analyzing-overlay { position: fixed; inset: 0; }
-  #lens-view { background: #000; display: flex; flex-direction: column; z-index: 10; }
+  #lens-view { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; }
   #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   
-  .ui-layer { position: relative; z-index: 20; height: 100%; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
-  .ui-top { padding: 50px 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); display: flex; justify-content: space-between; align-items: center; pointer-events: auto; }
-  .ui-bottom { padding: 40px 20px; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+  .lens-top { position: relative; z-index: 2; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); padding: 48px 20px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .lens-bottom { position: absolute; bottom: 0; left: 0; right: 0; z-index: 2; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 20px 24px 48px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
   
-  .btn-capture { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.2); cursor: pointer; }
-  .btn-capture:active { transform: scale(0.9); }
+  .btn-capture { width: 76px; height: 76px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .btn-capture::after { content: ''; width: 56px; height: 56px; border-radius: 50%; background: #fff; }
 
-  .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-family: monospace; }
-  .btn-primary { background: var(--accent); color: #000; width: 100%; }
-  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-
-  #result-view { background: var(--bg); z-index: 50; display: none; flex-direction: column; overflow-y: auto; }
-  #result-view.show { display: flex; }
-  .result-photo { width: 100%; height: 250px; object-fit: cover; border-bottom: 2px solid var(--accent); }
-  .result-body { padding: 20px; }
-  
-  .input-f { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 15px; font-family: monospace; }
-  
-  #analyzing-overlay { background: rgba(0,0,0,0.85); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
+  #analyzing-overlay { position: fixed; inset: 0; background: rgba(10,10,15,0.92); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
   #analyzing-overlay.show { display: flex; }
-  .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 48px; height: 48px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
 
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #ff4757; color: white; padding: 10px 20px; border-radius: 5px; display: none; z-index: 1000; font-size: 12px; }
+  #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 40; display: none; flex-direction: column; overflow-y: auto; }
+  #result-view.show { display: flex; }
+  .result-photo { width: 100%; height: 240px; object-fit: cover; }
+  .result-body { padding: 20px; }
+  .result-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .result-field { width: 100%; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; color: var(--text); font-family: monospace; margin-bottom: 15px; outline: none; }
+  
+  .btn-row { display: flex; gap: 10px; }
+  .btn { flex: 1; padding: 14px; border-radius: 12px; border: none; font-family: monospace; font-weight: bold; cursor: pointer; }
+  .btn-primary { background: linear-gradient(135deg, #7c5cfc, #00e5c0); color: #000; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+  
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1c1c2e; border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 13px; transition: transform 0.3s; z-index: 100; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
 
 <div id="lens-view">
   <video id="camera-feed" autoplay playsinline muted></video>
-  <div class="ui-layer">
-    <div class="ui-top">
-      <div style="font-weight: bold; color: var(--accent);">PRO SCANNER v2</div>
-      <button class="btn btn-outline" onclick="openSearch()">🔍 BUSCAR</button>
-    </div>
-    <div class="ui-bottom">
-      <button class="btn-capture" onclick="captureAndAnalyze()"></button>
-    </div>
+  <div class="lens-top">
+    <div style="font-weight: bold;">📷 SCANNER PRODUCTOS</div>
+    <button class="btn-outline" onclick="openSearch()" style="padding: 5px 10px; border-radius: 8px;">🔍 BUSCAR</button>
   </div>
-</div>
-
-<div id="result-view">
-  <img id="result-photo" class="result-photo">
-  <div class="result-body">
-    <label style="font-size: 10px; color: var(--muted);">PRODUCTO IDENTIFICADO</label>
-    <textarea id="field-desc" class="input-f" rows="2"></textarea>
-    
-    <div style="display: flex; gap: 10px;">
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: var(--muted);">PRECIO ANAQUEL</label>
-        <input type="number" id="field-costo" class="input-f" placeholder="0.00">
-      </div>
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: var(--muted);">PRECIO VENTA</label>
-        <input type="number" id="field-venta" class="input-f" placeholder="0.00">
-      </div>
-    </div>
-    
-    <button class="btn btn-primary" id="btn-save" onclick="saveData()">GUARDAR EN FIREBASE</button>
-    <button class="btn btn-outline" onclick="closeResult()" style="width: 100%; margin-top: 10px;">DESCARTAR</button>
+  <div class="lens-bottom">
+    <button class="btn-capture" onclick="captureAndAnalyze()"></button>
   </div>
 </div>
 
 <div id="analyzing-overlay">
   <div class="spinner"></div>
-  <p style="margin-top: 15px;">ANALIZANDO CON IA...</p>
+  <div style="color: var(--accent); font-weight: bold;">Analizando con Gemini...</div>
+</div>
+
+<div id="result-view">
+  <img id="result-photo" class="result-photo" src="">
+  <div class="result-body">
+    <div class="result-label">Identificación</div>
+    <textarea id="field-desc" class="result-field" rows="2"></textarea>
+    
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1;">
+        <div class="result-label">Precio Anaquel $</div>
+        <input type="number" id="field-costo" class="result-field" placeholder="0.00">
+      </div>
+      <div style="flex: 1;">
+        <div class="result-label">Precio Venta $</div>
+        <input type="number" id="field-venta" class="result-field" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="closeResult()">CANCELAR</button>
+      <button class="btn btn-primary" id="btn-save" onclick="saveToFirebase()">GUARDAR EN FIREBASE</button>
+    </div>
+  </div>
 </div>
 
 <div id="search-modal" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:200; padding:20px; overflow-y:auto;">
-  <h3>Inventario</h3>
-  <input type="text" id="search-input" class="input-f" placeholder="Buscar producto...">
-  <button class="btn btn-primary" onclick="runSearch()">CONSULTAR</button>
+  <h3>📦 Productos Guardados</h3>
+  <input type="text" id="search-input" class="result-field" placeholder="Nombre del producto..." style="margin-top:15px;">
+  <button class="btn btn-primary" onclick="runSearch()" style="width:100%">BUSCAR</button>
   <div id="search-results" style="margin-top:20px;"></div>
   <button class="btn btn-outline" onclick="document.getElementById('search-modal').style.display='none'" style="width:100%; margin-top:20px;">CERRAR</button>
 </div>
 
-<div id="toast" class="toast"></div>
+<div class="toast" id="toast"></div>
 
 <script>
-// 1. TUS CREDENCIALES
+// 1. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyB3kiLskvkV6cJ0byaCg_zqe-GIWM3jelI",
   authDomain: "ofertas-rapidas-con-scanner.firebaseapp.com",
@@ -110,26 +109,32 @@ const firebaseConfig = {
   messagingSenderId: "1093159890306",
   appId: "1:1093159890306:web:67211603ff99753207f39b"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-let currentBlob = null;
+const GEMINI_MODEL = 'gemini-1.5-flash';
+const SCAN_PROMPT = `Analiza esta imagen y extrae el nombre del producto y marca. Responde SOLO JSON: {"resultado":"..."}`;
 
-// Iniciar Cámara
-async function init() {
-  const key = localStorage.getItem('gemini_key');
-  if (!key) {
-    const n = prompt("Pega tu API Key de Gemini (AIza...):");
-    if (n) localStorage.setItem('gemini_key', n);
+let cameraStream = null;
+let capturedBlob = null;
+
+// Iniciar
+window.onload = () => {
+  const savedKey = localStorage.getItem('scanner_gemini_key');
+  if (!savedKey) {
+    const key = prompt("Pega tu API Key de Gemini:");
+    if (key) localStorage.setItem('scanner_gemini_key', key);
   }
+  startCamera();
+};
+
+async function startCamera() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    document.getElementById('camera-feed').srcObject = stream;
-  } catch (e) { alert("Error de cámara"); }
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    document.getElementById('camera-feed').srcObject = cameraStream;
+  } catch(e) { showToast('Error de cámara', 'error'); }
 }
-init();
 
 async function captureAndAnalyze() {
   const video = document.getElementById('camera-feed');
@@ -138,80 +143,71 @@ async function captureAndAnalyze() {
   canvas.getContext('2d').drawImage(video, 0, 0);
   
   canvas.toBlob(async (blob) => {
-    currentBlob = blob;
+    capturedBlob = blob;
+    document.getElementById('analyzing-overlay').classList.add('show');
     const base64 = await blobToBase64(blob);
-    document.getElementById('result-photo').src = URL.createObjectURL(blob);
-    callIA(base64.split(',')[1]);
-  }, 'image/jpeg', 0.8);
+    await callGemini(base64.split(',')[1]);
+  }, 'image/jpeg', 0.85);
 }
 
-async function callIA(base64Data) {
-  document.getElementById('analyzing-overlay').classList.add('show');
-  const key = localStorage.getItem('gemini_key');
-  
+async function callGemini(base64) {
+  const key = localStorage.getItem('scanner_gemini_key');
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64Data } }, { text: 'Identifica marca y producto. Responde solo el nombre corto.' }] }]
+        contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: SCAN_PROMPT }] }]
       })
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error.message);
-    
-    document.getElementById('field-desc').value = data.candidates[0].content.parts[0].text;
+    const data = await resp.json();
+    let text = data.candidates[0].content.parts[0].text;
+    text = text.replace(/```json|```/g, '').trim();
+    const json = JSON.parse(text);
+
+    document.getElementById('field-desc').value = json.resultado;
+    document.getElementById('result-photo').src = URL.createObjectURL(capturedBlob);
     document.getElementById('analyzing-overlay').classList.remove('show');
     document.getElementById('result-view').classList.add('show');
-  } catch (e) {
+  } catch(e) {
     document.getElementById('analyzing-overlay').classList.remove('show');
-    showToast("Error: " + e.message);
+    showToast('Error en lectura IA', 'error');
   }
 }
 
-async function saveData() {
+async function saveToFirebase() {
   const btn = document.getElementById('btn-save');
   btn.disabled = true; btn.innerText = "GUARDANDO...";
   
+  const nombre = document.getElementById('field-desc').value;
+  const anaquel = document.getElementById('field-costo').value;
+  const venta = document.getElementById('field-venta').value;
+
   try {
-    const path = `fotos/${Date.now()}.jpg`;
+    // Subir a Storage
+    const path = `productos/${Date.now()}.jpg`;
     const ref = storage.ref(path);
-    await ref.put(currentBlob);
+    await ref.put(capturedBlob);
     const url = await ref.getDownloadURL();
-    
+
+    // Guardar en Firestore
     await db.collection("productos").add({
-      nombre: document.getElementById('field-desc').value,
-      nombre_min: document.getElementById('field-desc').value.toLowerCase(),
-      anaquel: parseFloat(document.getElementById('field-costo').value) || 0,
-      venta: parseFloat(document.getElementById('field-venta').value) || 0,
+      nombre,
+      nombre_min: nombre.toLowerCase(),
+      precio_anaquel: parseFloat(anaquel) || 0,
+      precio_venta: parseFloat(venta) || 0,
       foto: url,
-      creado: firebase.firestore.FieldValue.serverTimestamp()
+      fecha: firebase.firestore.FieldValue.serverTimestamp()
     });
-    
-    alert("¡Guardado correctamente!");
+
+    showToast('¡Guardado en Firebase!', 'success');
     closeResult();
-  } catch (e) { showToast("Error Firebase: " + e.message); }
+  } catch(e) { showToast('Error al guardar', 'error'); }
   btn.disabled = false; btn.innerText = "GUARDAR EN FIREBASE";
 }
 
-// Auxiliares
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const r = new FileReader();
-    r.onloadend = () => resolve(r.result);
-    r.readAsDataURL(blob);
-  });
-}
-
-function showToast(m) {
-  const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 4000);
-}
-
-function closeResult() { document.getElementById('result-view').classList.remove('show'); }
-function openSearch() { document.getElementById('search-modal').style.display = 'block'; }
-
+// Búsqueda para "llamar" el producto
 async function runSearch() {
   const term = document.getElementById('search-input').value.toLowerCase();
   const res = document.getElementById('search-results');
@@ -220,12 +216,36 @@ async function runSearch() {
   res.innerHTML = "";
   snap.forEach(doc => {
     const p = doc.data();
-    res.innerHTML += `<div style="background:var(--surface); padding:10px; margin-bottom:10px; border-radius:8px;">
-      <img src="${p.foto}" style="width:100%; height:100px; object-fit:cover;">
-      <p><b>${p.nombre}</b></p>
-      <p style="color:var(--accent)">Venta: $${p.venta}</p>
+    res.innerHTML += `<div style="background:var(--surface); padding:10px; margin-bottom:10px; border-radius:12px; display:flex; gap:10px; align-items:center;">
+      <img src="${p.foto}" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">
+      <div style="flex:1">
+        <div style="font-size:14px;">${p.nombre}</div>
+        <div style="color:var(--accent); font-size:12px;">Venta: $${p.precio_venta}</div>
+      </div>
+      <button onclick="compartir('${p.nombre}', ${p.precio_venta}, '${p.foto}')" style="background:none; border:none; font-size:20px;">📲</button>
     </div>`;
   });
+}
+
+function compartir(n, v, f) {
+  const msg = `*Producto:* ${n}%0A*Precio:* $${v}%0A*Foto:* ${f}`;
+  window.open(`https://wa.me/?text=${msg}`, '_blank');
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function closeResult() { document.getElementById('result-view').classList.remove('show'); }
+function openSearch() { document.getElementById('search-modal').style.display = 'block'; }
+function showToast(m, type) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
 </body>
