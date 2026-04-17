@@ -3,33 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Pro — Yautepec</title>
+<title>Scanner Pro — Antonio Hernandez</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <style>
-  :root { --bg: #0a0a0f; --surface: #13131c; --border: #2a2a45; --accent: #00e5c0; --text: #e8e8f0; }
+  :root { --bg: #0a0a0f; --surface: #13131c; --border: #2a2a45; --accent: #00e5c0; --text: #e8e8f0; --muted: #6b6b8a; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font-family:monospace; overflow: hidden; }
+  body { background:var(--bg); color:var(--text); font-family:monospace; }
+
+  /* Vistas */
   #lens-view, #result-view, #analyzing-overlay { position: fixed; inset: 0; }
   #lens-view { background: #000; display: flex; flex-direction: column; z-index: 10; }
   #camera-feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  
   .ui-top { position: relative; z-index: 20; padding: 50px 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); display: flex; justify-content: space-between; align-items: center; }
   .ui-bottom { position: absolute; bottom: 0; left: 0; right: 0; z-index: 20; padding: 40px 20px; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); display: flex; flex-direction: column; align-items: center; }
+  
   .btn-capture { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.2); cursor: pointer; }
+  
   #result-view { background: var(--bg); z-index: 50; display: none; flex-direction: column; overflow-y: auto; }
   #result-view.show { display: flex; }
   .result-photo { width: 100%; height: 250px; object-fit: cover; border-bottom: 2px solid var(--accent); }
   .result-body { padding: 20px; }
-  .input-f { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 15px; font-family: monospace; }
+  
+  .input-f { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 15px; font-family: monospace; outline: none; }
   .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-family: monospace; width: 100%; margin-top: 10px; }
   .btn-primary { background: var(--accent); color: #000; }
   .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
   #analyzing-overlay { background: rgba(0,0,0,0.85); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; }
   #analyzing-overlay.show { display: flex; }
   .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1c1c2e; border: 1px solid var(--accent); padding: 12px; border-radius: 8px; display: none; z-index: 1000; font-size: 11px; max-width: 80%; }
 </style>
 </head>
@@ -38,7 +46,7 @@
 <div id="lens-view">
   <video id="camera-feed" autoplay playsinline muted></video>
   <div class="ui-top">
-    <div style="font-weight: bold; color: var(--accent);">SCANNER PRO</div>
+    <div style="font-weight: bold; color: var(--accent);">SCANNER PRO v3</div>
     <button class="btn-outline" onclick="openSearch()" style="width: auto; padding: 5px 10px;">🔍 INVENTARIO</button>
   </div>
   <div class="ui-bottom">
@@ -49,26 +57,34 @@
 <div id="result-view">
   <img id="result-photo" class="result-photo">
   <div class="result-body">
-    <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO</label>
-    <textarea id="field-desc" class="input-f" rows="2"></textarea>
+    <label style="font-size: 10px; color: var(--muted);">IDENTIFICACIÓN DEL PRODUCTO</label>
+    <textarea id="field-desc" class="input-f" rows="3"></textarea>
+    
     <div style="display: flex; gap: 10px;">
-      <div style="flex: 1;"><label style="font-size: 10px; color: #6b6b8a;">ANAQUEL $</label><input type="number" id="field-costo" class="input-f"></div>
-      <div style="flex: 1;"><label style="font-size: 10px; color: #6b6b8a;">VENTA $</label><input type="number" id="field-venta" class="input-f"></div>
+      <div style="flex: 1;">
+        <label style="font-size: 10px; color: var(--muted);">COSTO ANAQUEL $</label>
+        <input type="number" id="field-costo" class="input-f" placeholder="0.00">
+      </div>
+      <div style="flex: 1;">
+        <label style="font-size: 10px; color: var(--muted);">PRECIO VENTA $</label>
+        <input type="number" id="field-venta" class="input-f" placeholder="0.00">
+      </div>
     </div>
-    <button class="btn btn-primary" id="btn-save" onclick="saveData()">GUARDAR PRODUCTO</button>
-    <button class="btn btn-outline" onclick="closeResult()">CANCELAR</button>
+    
+    <button class="btn btn-primary" id="btn-save" onclick="saveData()">GUARDAR EN FIREBASE</button>
+    <button class="btn btn-outline" onclick="closeResult()">CANCELAR Y REPETIR</button>
   </div>
 </div>
 
 <div id="analyzing-overlay">
   <div class="spinner"></div>
-  <p style="margin-top: 15px; font-size: 12px;">GEMINI ANALIZANDO...</p>
+  <p style="margin-top: 15px; font-size: 12px;">ANALIZANDO PRODUCTO...</p>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script>
-// CONFIGURACIÓN FIREBASE
+// 1. CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyB3kiLskvkV6cJ0byaCg_zqe-GIWM3jelI",
   authDomain: "ofertas-rapidas-con-scanner.firebaseapp.com",
@@ -83,10 +99,11 @@ const db = firebase.firestore();
 const storage = firebase.storage();
 let currentBlob = null;
 
+// Inicialización
 window.onload = () => {
   let key = localStorage.getItem('gemini_key');
   if (!key || key.length < 10) {
-    const n = prompt("Pega tu API Key de Gemini (AIza...):");
+    const n = prompt("Ingresa tu API Key de Gemini:");
     if (n) localStorage.setItem('gemini_key', n);
   }
   startCamera();
@@ -104,6 +121,7 @@ async function captureAndAnalyze() {
   const c = document.createElement('canvas');
   c.width = v.videoWidth; c.height = v.videoHeight;
   c.getContext('2d').drawImage(v, 0, 0);
+  
   c.toBlob(async (blob) => {
     currentBlob = blob;
     document.getElementById('result-photo').src = URL.createObjectURL(blob);
@@ -113,11 +131,12 @@ async function captureAndAnalyze() {
   }, 'image/jpeg', 0.8);
 }
 
+// FUNCIÓN IA CORREGIDA (Sin v1beta)
 async function callIA(base64) {
   document.getElementById('analyzing-overlay').classList.add('show');
   const key = localStorage.getItem('gemini_key');
   
-  // CORRECCIÓN DE URL: Usamos v1 en lugar de v1beta
+  // Usamos la URL v1 para evitar el error de modelo no encontrado
   const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
 
   try {
@@ -125,7 +144,7 @@ async function callIA(base64) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: 'Identifica marca y producto. Responde solo el nombre corto.' }] }]
+        contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: 'Analiza la imagen y extrae marca y descripción completa del producto.' }] }]
       })
     });
 
@@ -138,37 +157,50 @@ async function callIA(base64) {
     document.getElementById('result-view').classList.add('show');
   } catch (e) {
     document.getElementById('analyzing-overlay').classList.remove('show');
-    showToast("Error de lectura IA: " + e.message);
+    showToast("Error Gemini: " + e.message);
   }
 }
 
 async function saveData() {
   const btn = document.getElementById('btn-save');
+  const nombre = document.getElementById('field-desc').value.trim();
+  if(!nombre) { showToast("⚠️ No hay descripción para guardar"); return; }
+
   btn.disabled = true; btn.innerText = "GUARDANDO...";
   try {
-    const path = `fotos/${Date.now()}.jpg`;
+    // 1. Guardar Foto
+    const path = `productos/${Date.now()}.jpg`;
     const ref = storage.ref(path);
     await ref.put(currentBlob);
     const url = await ref.getDownloadURL();
+    
+    // 2. Guardar Datos
     await db.collection("productos").add({
-      nombre: document.getElementById('field-desc').value,
-      nombre_min: document.getElementById('field-desc').value.toLowerCase(),
-      anaquel: parseFloat(document.getElementById('field-costo').value) || 0,
-      venta: parseFloat(document.getElementById('field-venta').value) || 0,
+      nombre: nombre,
+      nombre_busqueda: nombre.toLowerCase(),
+      precio_anaquel: parseFloat(document.getElementById('field-costo').value) || 0,
+      precio_venta: parseFloat(document.getElementById('field-venta').value) || 0,
       foto: url,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     });
-    alert("¡Producto guardado!");
+    
+    alert("✅ Producto guardado en Firebase");
     closeResult();
   } catch (e) { showToast("Error Firebase: " + e.message); }
-  btn.disabled = false; btn.innerText = "GUARDAR PRODUCTO";
+  btn.disabled = false; btn.innerText = "GUARDAR EN FIREBASE";
 }
 
 function showToast(m) {
   const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block';
   setTimeout(() => t.style.display = 'none', 5000);
 }
-function closeResult() { document.getElementById('result-view').classList.remove('show'); }
+
+function closeResult() { 
+  document.getElementById('result-view').classList.remove('show'); 
+  document.getElementById('field-costo').value = "";
+  document.getElementById('field-venta').value = "";
+}
+
 function openSearch() { alert("Buscador próximamente..."); }
 </script>
 </body>
