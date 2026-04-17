@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Express — Antonio Hernandez</title>
+<title>Scanner Express v8 — Antonio Hernandez</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -13,10 +13,10 @@
   #camera-feed { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .ui-overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 20px; pointer-events: none; }
   .btn-capture { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.2); pointer-events: auto; align-self: center; }
-  #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; }
-  .input-f { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 10px; font-family: monospace; }
+  #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; overflow-y: auto; }
+  .input-f { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 10px; font-family: monospace; font-size: 14px; }
   .btn { padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
-  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 200; display: none; align-items: center; justify-content: center; }
+  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
@@ -24,24 +24,39 @@
 <video id="camera-feed" autoplay playsinline muted></video>
 
 <div class="ui-overlay">
-  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS</div>
+  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS PRO</div>
   <button class="btn-capture" onclick="capture()"></button>
 </div>
 
 <div id="result-view">
   <img id="result-photo" style="width:100%; height:250px; object-fit:cover;">
   <div style="padding: 20px;">
-    <textarea id="field-desc" class="input-f" rows="3"></textarea>
-    <input type="number" id="field-venta" class="input-f" placeholder="Precio Venta $">
+    <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO</label>
+    <textarea id="field-desc" class="input-f" rows="2"></textarea>
     
-    <button class="btn" style="background:var(--accent); color:#000;" onclick="shareEverything()">📲 ENVIAR POR WHATSAPP</button>
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1;">
+        <label style="font-size: 10px; color: #6b6b8a;">ANAQUEL $</label>
+        <input type="number" id="field-anaquel" class="input-f" placeholder="0.00">
+      </div>
+      <div style="flex: 1;">
+        <label style="font-size: 10px; color: #6b6b8a;">VENTA $</label>
+        <input type="number" id="field-venta" class="input-f" placeholder="0.00">
+      </div>
+    </div>
     
-    <button class="btn" style="background:#2a2a45; color:#fff;" onclick="saveAndClose()">SOLO GUARDAR EN NUBE</button>
-    <button class="btn" style="background:transparent; color:#ff4466;" onclick="location.reload()">CANCELAR</button>
+    <button class="btn" style="background:var(--accent); color:#000;" onclick="shareAndSave()">📲 ENVIAR Y GUARDAR NUBE</button>
+    
+    <button class="btn" style="background:transparent; border: 1px solid #ff4466; color:#ff4466;" onclick="location.reload()">CANCELAR</button>
   </div>
 </div>
 
-<div id="loader">⚙️ PROCESANDO...</div>
+<div id="loader">
+  <div style="border: 4px solid #2a2a45; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+  <p style="margin-top: 15px; font-size: 12px;">PROCESANDO...</p>
+</div>
+
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
 <script>
 const firebaseConfig = {
@@ -58,8 +73,10 @@ const storage = firebase.storage();
 let currentBlob = null;
 
 async function start() {
-  const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-  document.getElementById('camera-feed').srcObject = s;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    document.getElementById('camera-feed').srcObject = s;
+  } catch(e) { alert("Error cámara"); }
 }
 start();
 
@@ -80,56 +97,71 @@ async function analyze(blob) {
   const reader = new FileReader();
   reader.onloadend = async () => {
     const base64 = reader.result.split(',')[1];
-    const key = localStorage.getItem('gemini_key') || prompt("Ingresa tu API Key:");
+    const key = localStorage.getItem('gemini_key') || prompt("API Key:");
     if(key) localStorage.setItem('gemini_key', key);
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`, {
-      method: 'POST',
-      body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Dime marca y producto. Solo el nombre en MAYÚSCULAS." }] }] })
-    });
-    const d = await res.json();
-    document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`, {
+        method: 'POST',
+        body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Marca y producto. Responde solo el nombre en MAYÚSCULAS." }] }] })
+      });
+      const d = await res.json();
+      document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
+    } catch(e) { alert("Error IA"); }
     document.getElementById('loader').style.display = 'none';
     document.getElementById('result-view').style.display = 'flex';
   };
   reader.readAsDataURL(blob);
 }
 
-// ── ESTA FUNCIÓN ENVÍA LA FOTO REAL Y EL TEXTO SIN LINKS ──
-async function shareEverything() {
+// ── ENVÍO Y GUARDADO AUTOMÁTICO ──
+async function shareAndSave() {
   const nombre = document.getElementById('field-desc').value;
-  const precio = document.getElementById('field-venta').value;
-  const texto = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO: $${precio}`;
+  const anaquel = document.getElementById('field-anaquel').value || "0";
+  const venta = document.getElementById('field-venta').value || "0";
+  
+  const texto = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO VENTA: $${venta}\n🏷️ PRECIO ANAQUEL: $${anaquel}`;
 
+  // 1. Iniciamos el guardado en Firebase (Segundo plano)
+  uploadToFirebase(nombre, anaquel, venta);
+
+  // 2. Abrimos el menú nativo de compartir (Primer plano)
   if (navigator.share) {
-    const file = new File([currentBlob], 'producto.jpg', { type: 'image/jpeg' });
+    const file = new File([currentBlob], 'oferta.jpg', { type: 'image/jpeg' });
     try {
       await navigator.share({
         files: [file],
         text: texto
       });
-      // Después de compartir, guardamos en Firebase automáticamente para que no se pierda
-      saveAndClose();
+      // Si el usuario regresa de compartir, recargamos la cámara
+      setTimeout(() => location.reload(), 2000);
     } catch (e) {
-      alert("Error al compartir. Intenta guardar primero.");
+      console.log("Compartir cancelado o no soportado");
     }
   } else {
-    alert("Tu navegador no soporta compartir archivos directamente.");
+    alert("Navegador no soporta compartir directamente.");
   }
 }
 
-async function saveAndClose() {
-  document.getElementById('loader').style.display = 'flex';
-  const path = `productos/${Date.now()}.jpg`;
-  const ref = storage.ref(path);
-  await ref.put(currentBlob);
-  const foto = await ref.getDownloadURL();
-  await db.collection("productos").add({
-    nombre: document.getElementById('field-desc').value,
-    precio_venta: parseFloat(document.getElementById('field-venta').value) || 0,
-    foto, creado: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  location.reload();
+async function uploadToFirebase(nombre, anaquel, venta) {
+  try {
+    const path = `productos/${Date.now()}.jpg`;
+    const ref = storage.ref(path);
+    await ref.put(currentBlob);
+    const foto = await ref.getDownloadURL();
+    
+    await db.collection("productos").add({
+      nombre: nombre,
+      nombre_busqueda: nombre.toLowerCase(),
+      precio_anaquel: parseFloat(anaquel),
+      precio_venta: parseFloat(venta),
+      foto: foto,
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log("Guardado en Firebase con éxito.");
+  } catch (e) {
+    console.error("Error al subir a la nube:", e);
+  }
 }
 </script>
 </body>
