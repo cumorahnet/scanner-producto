@@ -1,207 +1,73 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Yaute v33.5 - Scanner & Ventas (AQ Ready)</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+    // ... (Mantén la configuración de Firebase igual) ...
 
-    <style>
-        :root { --primary: #0f172a; --accent: #3b82f6; --success: #10b981; --bg: #f8fafc; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; padding: 0; }
-        header { background: var(--primary); color: white; padding: 1.2rem; text-align: center; border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+    async function captureIA() {
+        const key = localStorage.getItem('yaute_key_val');
+        const video = document.getElementById('cam-preview-ia');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         
-        /* PANEL DE INICIO */
-        #home-selector { display: flex; flex-direction: column; gap: 15px; padding: 20px; }
-        .btn-mode { padding: 30px; border-radius: 20px; border: none; color: white; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        
-        /* FORMULARIOS Y BUSCADORES ORIGINALES */
-        .card-custom { background: white; border-radius: 20px; padding: 20px; margin: 15px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.05); position: relative; }
-        .form-control { padding: 0.8rem; border-radius: 12px; border: 2px solid #f1f5f9; text-transform: uppercase; font-weight: bold; }
-        .sug-box { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 12px; max-height: 200px; overflow-y: auto; z-index: 2000; border: 1px solid #e2e8f0; }
-        .sug-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-weight: 700; }
+        document.getElementById('snap-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-        /* MODAL DE LLAVE (PARA QUE NO SE QUEME EN GITHUB) */
-        #key-config-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 20000; display: none; align-items: center; justify-content: center; padding: 20px; }
-        
-        /* SCANNER IA */
-        #ia-modal { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; }
-        #cam-preview-ia { width: 100%; height: 100%; object-fit: cover; }
-        .scan-frame { width: 80%; height: 45%; border: 3px solid #00e5c0; border-radius: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); pointer-events: none; }
-    </style>
-</head>
-<body>
+        try {
+            // CAMBIO CLAVE: Usamos v1beta y el modelo específico para llaves de Cloud
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            inline_data: { mime_type: 'image/jpeg', data: b64 }
+                        }, {
+                            text: "Identifica este producto. Responde SOLO el nombre y marca en MAYÚSCULAS."
+                        }]
+                    }]
+                })
+            });
 
-    <div id="key-config-modal">
-        <div class="card-custom w-100" style="max-width: 400px; text-align: center;">
-            <h5 class="fw-bold mb-3">ACTIVAR SISTEMA</h5>
-            <p class="small text-muted">Ingresa tu llave de API (la que empieza con <b>AQ</b> o <b>AIza</b>).</p>
-            <input type="text" id="user-gemini-key" class="form-control mb-3" placeholder="Pega tu clave aquí...">
-            <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="saveGeminiKey()">GUARDAR EN DISPOSITIVO</button>
-        </div>
-    </div>
-
-    <header>
-        <h6 class="m-0 fw-bold">Ofertas Rápidas Yaute v33.5</h6>
-        <div id="status-dot" style="width:10px; height:10px; border-radius:50%; background:orange; display:inline-block;"></div>
-    </header>
-
-    <div id="home-selector">
-        <button class="btn-mode" style="background: linear-gradient(135deg, #00e5c0, #00a884);" onclick="openScanner()">
-            <i class="fas fa-camera fa-2x"></i> PUBLICAR OFERTA (IA)
-        </button>
-        <button class="btn-mode" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="showTab('operaciones')">
-            <i class="fas fa-cash-register fa-2x"></i> REGISTRAR VENTAS
-        </button>
-    </div>
-
-    <div id="tab-operaciones" style="display:none;">
-        <div class="card-custom">
-            <div class="row g-2 mb-2">
-                <div class="col-6" style="position:relative"><label class="small fw-bold">TIENDA</label><input type="text" id="in-tienda" class="form-control"><div id="sug-tienda" class="sug-box d-none"></div></div>
-                <div class="col-6" style="position:relative"><label class="small fw-bold">CLIENTE</label><input type="text" id="in-cliente" class="form-control"><div id="sug-cliente" class="sug-box d-none"></div></div>
-            </div>
-            <div class="row g-2 mb-2">
-                <div class="col-3"><label class="small fw-bold">CANT.</label><input type="number" id="in-cantidad" class="form-control text-center" value="1"></div>
-                <div class="col" style="position:relative"><label class="small fw-bold">PRODUCTO</label><input type="text" id="in-producto" class="form-control" placeholder="BUSCAR..."><div id="sug-producto" class="sug-box d-none"></div></div>
-            </div>
-            <div class="row g-2 mb-3">
-                <div class="col-6"><label class="small fw-bold">COSTO $</label><input type="number" id="in-costo" class="form-control"></div>
-                <div class="col-6"><label class="small fw-bold">VENTA $</label><input type="number" id="in-precio" class="form-control"></div>
-            </div>
-            <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold" onclick="saveRecord()">GUARDAR VENTA</button>
-            <button class="btn btn-light w-100 mt-2 rounded-pill" onclick="location.reload()">VOLVER</button>
-        </div>
-    </div>
-
-    <div id="ia-modal">
-        <video id="cam-preview-ia" autoplay playsinline muted></video>
-        <div class="scan-frame"></div>
-        <button class="btn btn-dark" style="position:absolute; top:20px; left:20px; border-radius:50px;" onclick="closeScanner()">✕ SALIR</button>
-        <button id="snap-btn" class="btn btn-light" style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); width:80px; height:80px; border-radius:50%;" onclick="captureIA()"><i class="fas fa-camera fa-2x"></i></button>
-    </div>
-
-    <script>
-        // CONFIGURACIÓN FIREBASE
-        const firebaseConfig = { apiKey: "AIzaSyCR5V_yg6aLumW_D8oFPEblHZ5ox2gTs98", authDomain: "ofertas-rapidas-yautepec.firebaseapp.com", projectId: "ofertas-rapidas-yautepec", storageBucket: "ofertas-rapidas-yautepec.firebasestorage.app", messagingSenderId: "81339635207", appId: "1:81339635207:web:26d180f92224d9a036fca2" };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        let state = { products: [], clients: [], stores: [] };
-        let stream = null;
-
-        function saveGeminiKey() {
-            const val = document.getElementById('user-gemini-key').value.trim();
-            if(val) { localStorage.setItem('yaute_key_val', val); location.reload(); }
-        }
-
-        function startSync() {
-            if(!localStorage.getItem('yaute_key_val')) {
-                document.getElementById('key-config-modal').style.display = 'flex';
+            const d = await res.json();
+            
+            // Si la IA responde con error, te dirá exactamente qué dice Google
+            if (d.error) {
+                alert("Error de Google: " + d.error.message);
                 return;
             }
-            const appId = 'yaute-v1-shared';
-            ['products', 'clients', 'stores'].forEach(col => {
-                db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col).onSnapshot(snap => {
-                    state[col] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    document.getElementById('status-dot').style.background = "green";
-                });
-            });
-            setupAuto('in-tienda', 'sug-tienda', 'stores');
-            setupAuto('in-cliente', 'sug-cliente', 'clients');
-            setupAuto('in-producto', 'sug-producto', 'products');
-        }
 
-        function setupAuto(inpId, boxId, key) {
-            const inp = document.getElementById(inpId);
-            const box = document.getElementById(boxId);
-            inp.oninput = () => {
-                const val = inp.value.toUpperCase();
-                if(!val) { box.classList.add('d-none'); return; }
-                const filtered = state[key].map(x => (x.nombre || "").toUpperCase()).filter(s => s.includes(val)).slice(0, 5);
-                box.innerHTML = filtered.map(s => `<div class="sug-item" onclick="selectSug('${inpId}','${boxId}','${s}','${key}')">${s}</div>`).join('');
-                box.classList.remove('d-none');
-            };
-        }
+            const nombre = d.candidates[0].content.parts[0].text.trim();
+            
+            // Lógica de duplicados y precios
+            const existe = state.products.find(p => p.nombre.toUpperCase() === nombre.toUpperCase());
+            if(existe) alert("⚠️ PRODUCTO YA EXISTE EN CATÁLOGO");
 
-        function selectSug(inpId, boxId, val, key) {
-            document.getElementById(inpId).value = val;
-            document.getElementById(boxId).classList.add('d-none');
-            if(key === 'products') {
-                const p = state.products.find(x => x.nombre.toUpperCase() === val);
-                if(p) { document.getElementById('in-costo').value = p.costo; document.getElementById('in-precio').value = p.precio; }
-            }
-        }
+            const v = prompt("PRECIO VENTA:", existe ? existe.precio : "");
+            const a = prompt("PRECIO ANAQUEL (COSTO):", existe ? existe.costo : "");
 
-        async function openScanner() {
-            document.getElementById('home-selector').style.display = 'none';
-            document.getElementById('ia-modal').style.display = 'flex';
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            document.getElementById('cam-preview-ia').srcObject = stream;
-        }
-
-        function closeScanner() {
-            if(stream) stream.getTracks().forEach(t => t.stop());
-            document.getElementById('ia-modal').style.display = 'none';
-            document.getElementById('home-selector').style.display = 'flex';
-        }
-
-        async function captureIA() {
-            const key = localStorage.getItem('yaute_key_val');
-            const video = document.getElementById('cam-preview-ia');
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-            document.getElementById('snap-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-            try {
-                // LLAMADA COMPATIBLE CON LLAVES AQ
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: "MARCA Y PRODUCTO. TODO EN MAYÚSCULAS." }] }] })
-                });
-                const d = await res.json();
-                const nombre = d.candidates[0].content.parts[0].text.trim();
+            if(v) {
+                const blob = await (await fetch(canvas.toDataURL('image/jpeg'))).blob();
+                const f = new File([blob], 'oferta.jpg', { type: 'image/jpeg' });
+                if(navigator.share) await navigator.share({ files: [f], text: `🛒 *OFERTA*\n📦 ${nombre}\n💰 $${v}` });
                 
-                const existe = state.products.find(p => p.nombre.toUpperCase() === nombre.toUpperCase());
-                if(existe) alert("⚠️ PRODUCTO YA EXISTE");
-
-                const v = prompt("VENTA:", existe ? existe.precio : "");
-                const a = prompt("ANAQUEL:", existe ? existe.costo : "");
-
-                if(v) {
-                    const blob = await (await fetch(canvas.toDataURL('image/jpeg'))).blob();
-                    const f = new File([blob], 'oferta.jpg', { type: 'image/jpeg' });
-                    if(navigator.share) await navigator.share({ files: [f], text: `🛒 *OFERTA*\n📦 ${nombre}\n💰 $${v}` });
-                    if(!existe) db.collection('artifacts/yaute-v1-shared/public/data/products').add({ nombre, costo: parseFloat(a)||0, precio: parseFloat(v) });
-                    location.reload();
+                // Guardado en tu base de datos de Yautepec
+                if(!existe) {
+                    db.collection('artifacts/yaute-v1-shared/public/data/products').add({
+                        nombre: nombre,
+                        costo: parseFloat(a) || 0,
+                        precio: parseFloat(v) || 0,
+                        creado: Date.now()
+                    });
                 }
-            } catch(e) { alert("Error: Llave inválida."); localStorage.removeItem('yaute_key_val'); location.reload(); }
+                location.reload();
+            }
+        } catch(e) { 
+            alert("Error de conexión. Verifica que la llave esté bien pegada."); 
+        } finally {
+            document.getElementById('snap-btn').innerHTML = '<i class="fas fa-camera fa-2x"></i>';
         }
-
-        function showTab(id) {
-            document.getElementById('home-selector').style.display = 'none';
-            document.getElementById('tab-' + id).style.display = 'block';
-        }
-
-        async function saveRecord() {
-            const t = document.getElementById('in-tienda').value.toUpperCase();
-            const c = document.getElementById('in-cliente').value.toUpperCase();
-            const p = document.getElementById('in-producto').value.toUpperCase();
-            const q = parseInt(document.getElementById('in-cantidad').value);
-            const co = parseFloat(document.getElementById('in-costo').value);
-            const pr = parseFloat(document.getElementById('in-precio').value);
-            if(!t || !c || !p) return alert("Faltan datos");
-            await db.collection('artifacts/yaute-v1-shared/public/data/sales').add({ tienda: t, cliente: c, producto: p, cantidad: q, costo: co, precio: pr, total: q*pr, fechaStr: new Date().toLocaleDateString(), timestamp: Date.now() });
-            alert("Guardado ✅");
-            location.reload();
-        }
-        window.onload = startSync;
-    </script>
-</body>
-</html>
+    }
+    
+    // ... (El resto del código de guardado de ventas se mantiene igual) ...
+</script>
