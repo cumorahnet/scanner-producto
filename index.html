@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Express v8 — Antonio Hernandez</title>
+<title>Scanner Express v8.1 — Antonio Hernandez</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -24,29 +24,28 @@
 <video id="camera-feed" autoplay playsinline muted></video>
 
 <div class="ui-overlay">
-  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS PRO</div>
+  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS PRO v8.1</div>
   <button class="btn-capture" onclick="capture()"></button>
 </div>
 
 <div id="result-view">
   <img id="result-photo" style="width:100%; height:250px; object-fit:cover;">
   <div style="padding: 20px;">
-    <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO</label>
+    <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO IDENTIFICADO</label>
     <textarea id="field-desc" class="input-f" rows="2"></textarea>
     
     <div style="display: flex; gap: 10px;">
       <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">ANAQUEL $</label>
+        <label style="font-size: 10px; color: #6b6b8a;">PRECIO ANAQUEL (NUBE)</label>
         <input type="number" id="field-anaquel" class="input-f" placeholder="0.00">
       </div>
       <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">VENTA $</label>
+        <label style="font-size: 10px; color: #6b6b8a;">PRECIO VENTA (CLIENTE)</label>
         <input type="number" id="field-venta" class="input-f" placeholder="0.00">
       </div>
     </div>
     
     <button class="btn" style="background:var(--accent); color:#000;" onclick="shareAndSave()">📲 ENVIAR Y GUARDAR NUBE</button>
-    
     <button class="btn" style="background:transparent; border: 1px solid #ff4466; color:#ff4466;" onclick="location.reload()">CANCELAR</button>
   </div>
 </div>
@@ -59,6 +58,7 @@
 <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
 <script>
+// CONFIGURACIÓN DE FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyB3kiLskvkV6cJ0byaCg_zqe-GIWM3jelI",
   authDomain: "ofertas-rapidas-con-scanner.firebaseapp.com",
@@ -76,7 +76,7 @@ async function start() {
   try {
     const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     document.getElementById('camera-feed').srcObject = s;
-  } catch(e) { alert("Error cámara"); }
+  } catch(e) { alert("Error al iniciar cámara"); }
 }
 start();
 
@@ -97,7 +97,7 @@ async function analyze(blob) {
   const reader = new FileReader();
   reader.onloadend = async () => {
     const base64 = reader.result.split(',')[1];
-    const key = localStorage.getItem('gemini_key') || prompt("API Key:");
+    const key = localStorage.getItem('gemini_key') || prompt("Ingresa tu Gemini API Key:");
     if(key) localStorage.setItem('gemini_key', key);
 
     try {
@@ -107,60 +107,62 @@ async function analyze(blob) {
       });
       const d = await res.json();
       document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
-    } catch(e) { alert("Error IA"); }
+    } catch(e) { alert("Error de comunicación con la IA"); }
     document.getElementById('loader').style.display = 'none';
     document.getElementById('result-view').style.display = 'flex';
   };
   reader.readAsDataURL(blob);
 }
 
-// ── ENVÍO Y GUARDADO AUTOMÁTICO ──
+// ENVÍO Y GUARDADO SIMULTÁNEO
 async function shareAndSave() {
   const nombre = document.getElementById('field-desc').value;
   const anaquel = document.getElementById('field-anaquel').value || "0";
   const venta = document.getElementById('field-venta').value || "0";
   
-  const texto = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO VENTA: $${venta}\n🏷️ PRECIO ANAQUEL: $${anaquel}`;
+  // El mensaje de WhatsApp solo lleva el precio de venta
+  const textoWhatsApp = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO: $${venta}`;
 
-  // 1. Iniciamos el guardado en Firebase (Segundo plano)
-  uploadToFirebase(nombre, anaquel, venta);
+  // 1. Iniciar subida a Firebase (Segundo plano)
+  uploadData(nombre, anaquel, venta);
 
-  // 2. Abrimos el menú nativo de compartir (Primer plano)
+  // 2. Abrir menú de compartir con foto real y texto (Primer plano)
   if (navigator.share) {
-    const file = new File([currentBlob], 'oferta.jpg', { type: 'image/jpeg' });
+    const file = new File([currentBlob], 'oferta_yautepec.jpg', { type: 'image/jpeg' });
     try {
       await navigator.share({
         files: [file],
-        text: texto
+        text: textoWhatsApp
       });
-      // Si el usuario regresa de compartir, recargamos la cámara
-      setTimeout(() => location.reload(), 2000);
+      // Recarga para el siguiente escaneo
+      setTimeout(() => location.reload(), 1500);
     } catch (e) {
-      console.log("Compartir cancelado o no soportado");
+      console.log("Compartir omitido");
     }
   } else {
-    alert("Navegador no soporta compartir directamente.");
+    alert("Tu navegador no soporta el envío directo de archivos.");
   }
 }
 
-async function uploadToFirebase(nombre, anaquel, venta) {
+async function uploadData(nombre, anaquel, venta) {
   try {
     const path = `productos/${Date.now()}.jpg`;
     const ref = storage.ref(path);
     await ref.put(currentBlob);
-    const foto = await ref.getDownloadURL();
+    const fotoUrl = await ref.getDownloadURL();
     
+    // Guardamos ambos precios en la nube para tu administración
     await db.collection("productos").add({
       nombre: nombre,
       nombre_busqueda: nombre.toLowerCase(),
       precio_anaquel: parseFloat(anaquel),
       precio_venta: parseFloat(venta),
-      foto: foto,
+      foto: fotoUrl,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log("Guardado en Firebase con éxito.");
+    console.log("Datos guardados en la nube exitosamente.");
   } catch (e) {
-    console.error("Error al subir a la nube:", e);
+    console.error("Error al guardar en la nube:", e);
   }
 }
 </script>
