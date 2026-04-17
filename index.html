@@ -1,272 +1,207 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Express v8.2 — Antonio Hernandez</title>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-<style>
-  :root { --bg: #0a0a0f; --accent: #00e5c0; --text: #e8e8f0; }
-  body { background: var(--bg); color: var(--text); font-family: monospace; margin: 0; overflow: hidden; }
-  #camera-feed { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .ui-overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 40px 20px; pointer-events: none; }
-  .btn-capture { width: 80px; height: 80px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,0.2); pointer-events: auto; align-self: center; }
-  #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; overflow-y: auto; }
-  .input-f { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 10px; font-family: monospace; font-size: 14px; }
-  .btn { padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; font-family: monospace; }
-  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yaute v33.5 - Scanner & Ventas (AQ Ready)</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-  /* ── PANTALLA API KEY — reemplaza el prompt() bloqueado en móviles ── */
-  #key-screen {
-    position: fixed; inset: 0; background: var(--bg); z-index: 300;
-    display: none;                      /* js la muestra si falta la key */
-    flex-direction: column; align-items: center; justify-content: center;
-    padding: 35px; gap: 14px;
-  }
-  #key-screen h2  { color: var(--accent); font-size: 1rem; letter-spacing: 2px; }
-  #key-screen p   { color: #6b6b8a; font-size: 0.72rem; text-align: center; line-height: 1.6; }
-  #key-screen a   { color: var(--accent); }
-  #key-input      { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 14px; color: #fff; font-family: monospace; font-size: 13px; outline: none; }
-  #btn-change-key {
-    position: absolute; top: 48px; right: 18px; z-index: 20;
-    background: transparent; border: 1px solid #ff4466; color: #ff4466;
-    border-radius: 6px; padding: 4px 10px; font-size: 0.65rem;
-    font-family: monospace; cursor: pointer; pointer-events: auto;
-  }
-</style>
+    <style>
+        :root { --primary: #0f172a; --accent: #3b82f6; --success: #10b981; --bg: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; padding: 0; }
+        header { background: var(--primary); color: white; padding: 1.2rem; text-align: center; border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
+        
+        /* PANEL DE INICIO */
+        #home-selector { display: flex; flex-direction: column; gap: 15px; padding: 20px; }
+        .btn-mode { padding: 30px; border-radius: 20px; border: none; color: white; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        /* FORMULARIOS Y BUSCADORES ORIGINALES */
+        .card-custom { background: white; border-radius: 20px; padding: 20px; margin: 15px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.05); position: relative; }
+        .form-control { padding: 0.8rem; border-radius: 12px; border: 2px solid #f1f5f9; text-transform: uppercase; font-weight: bold; }
+        .sug-box { position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 12px; max-height: 200px; overflow-y: auto; z-index: 2000; border: 1px solid #e2e8f0; }
+        .sug-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; font-weight: 700; }
+
+        /* MODAL DE LLAVE (PARA QUE NO SE QUEME EN GITHUB) */
+        #key-config-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 20000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        
+        /* SCANNER IA */
+        #ia-modal { position: fixed; inset: 0; background: #000; z-index: 10000; display: none; flex-direction: column; }
+        #cam-preview-ia { width: 100%; height: 100%; object-fit: cover; }
+        .scan-frame { width: 80%; height: 45%; border: 3px solid #00e5c0; border-radius: 24px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); pointer-events: none; }
+    </style>
 </head>
 <body>
 
-<!-- ══ PANTALLA API KEY ════════════════════════════════════════════ -->
-<div id="key-screen">
-  <h2>⚙ API KEY GEMINI</h2>
-  <p>
-    Necesaria para analizar las etiquetas.<br>
-    Se guarda solo en este dispositivo.<br><br>
-    Obtén la tuya gratis en<br>
-    <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>
-  </p>
-  <input id="key-input" type="password" placeholder="AIzaSy...">
-  <button class="btn" style="background:var(--accent); color:#000;" onclick="saveKey()">
-    GUARDAR Y CONTINUAR
-  </button>
-</div>
-
-<!-- ══ CÁMARA ═════════════════════════════════════════════════════ -->
-<video id="camera-feed" autoplay playsinline muted></video>
-
-<div class="ui-overlay">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <div style="font-weight:bold; color:var(--accent); pointer-events:auto;">
-      SCANNER EXPRESS PRO v8.2
+    <div id="key-config-modal">
+        <div class="card-custom w-100" style="max-width: 400px; text-align: center;">
+            <h5 class="fw-bold mb-3">ACTIVAR SISTEMA</h5>
+            <p class="small text-muted">Ingresa tu llave de API (la que empieza con <b>AQ</b> o <b>AIza</b>).</p>
+            <input type="text" id="user-gemini-key" class="form-control mb-3" placeholder="Pega tu clave aquí...">
+            <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="saveGeminiKey()">GUARDAR EN DISPOSITIVO</button>
+        </div>
     </div>
-    <!-- Botón discreto para cambiar la key sin romper el flujo -->
-    <button id="btn-change-key" onclick="changeKey()">⚙ KEY</button>
-  </div>
-  <button class="btn-capture" onclick="capture()"></button>
-</div>
 
-<!-- ══ RESULTADO ══════════════════════════════════════════════════ -->
-<div id="result-view">
-  <img id="result-photo" style="width:100%; height:250px; object-fit:cover;">
-  <div style="padding: 20px;">
-    <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO IDENTIFICADO</label>
-    <textarea id="field-desc" class="input-f" rows="2"></textarea>
-    
-    <div style="display: flex; gap: 10px;">
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">PRECIO ANAQUEL (NUBE)</label>
-        <input type="number" id="field-anaquel" class="input-f" placeholder="0.00">
-      </div>
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">PRECIO VENTA (CLIENTE)</label>
-        <input type="number" id="field-venta" class="input-f" placeholder="0.00">
-      </div>
+    <header>
+        <h6 class="m-0 fw-bold">Ofertas Rápidas Yaute v33.5</h6>
+        <div id="status-dot" style="width:10px; height:10px; border-radius:50%; background:orange; display:inline-block;"></div>
+    </header>
+
+    <div id="home-selector">
+        <button class="btn-mode" style="background: linear-gradient(135deg, #00e5c0, #00a884);" onclick="openScanner()">
+            <i class="fas fa-camera fa-2x"></i> PUBLICAR OFERTA (IA)
+        </button>
+        <button class="btn-mode" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="showTab('operaciones')">
+            <i class="fas fa-cash-register fa-2x"></i> REGISTRAR VENTAS
+        </button>
     </div>
-    
-    <button class="btn" style="background:var(--accent); color:#000;" onclick="shareAndSave()">
-      📲 ENVIAR Y GUARDAR NUBE
-    </button>
-    <button class="btn" style="background:transparent; border:1px solid #ff4466; color:#ff4466;" onclick="location.reload()">
-      CANCELAR
-    </button>
-  </div>
-</div>
 
-<!-- ══ LOADER ═════════════════════════════════════════════════════ -->
-<div id="loader">
-  <div style="border:4px solid #2a2a45; border-top:4px solid var(--accent); border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite;"></div>
-  <p style="margin-top:15px; font-size:12px;">PROCESANDO...</p>
-</div>
+    <div id="tab-operaciones" style="display:none;">
+        <div class="card-custom">
+            <div class="row g-2 mb-2">
+                <div class="col-6" style="position:relative"><label class="small fw-bold">TIENDA</label><input type="text" id="in-tienda" class="form-control"><div id="sug-tienda" class="sug-box d-none"></div></div>
+                <div class="col-6" style="position:relative"><label class="small fw-bold">CLIENTE</label><input type="text" id="in-cliente" class="form-control"><div id="sug-cliente" class="sug-box d-none"></div></div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-3"><label class="small fw-bold">CANT.</label><input type="number" id="in-cantidad" class="form-control text-center" value="1"></div>
+                <div class="col" style="position:relative"><label class="small fw-bold">PRODUCTO</label><input type="text" id="in-producto" class="form-control" placeholder="BUSCAR..."><div id="sug-producto" class="sug-box d-none"></div></div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-6"><label class="small fw-bold">COSTO $</label><input type="number" id="in-costo" class="form-control"></div>
+                <div class="col-6"><label class="small fw-bold">VENTA $</label><input type="number" id="in-precio" class="form-control"></div>
+            </div>
+            <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold" onclick="saveRecord()">GUARDAR VENTA</button>
+            <button class="btn btn-light w-100 mt-2 rounded-pill" onclick="location.reload()">VOLVER</button>
+        </div>
+    </div>
 
-<script>
-/* ══════════════════════════════════════════════
-   FIREBASE
-══════════════════════════════════════════════ */
-const firebaseConfig = {
-  apiKey: "AIzaSyB3kiLskvkV6cJ0byaCg_zqe-GIWM3jelI",
-  authDomain: "ofertas-rapidas-con-scanner.firebaseapp.com",
-  projectId: "ofertas-rapidas-con-scanner",
-  storageBucket: "ofertas-rapidas-con-scanner.firebasestorage.app",
-  messagingSenderId: "1093159890306",
-  appId: "1:1093159890306:web:67211603ff99753207f39b"
-};
-firebase.initializeApp(firebaseConfig);
-const db      = firebase.firestore();
-const storage = firebase.storage();
-let currentBlob = null;
+    <div id="ia-modal">
+        <video id="cam-preview-ia" autoplay playsinline muted></video>
+        <div class="scan-frame"></div>
+        <button class="btn btn-dark" style="position:absolute; top:20px; left:20px; border-radius:50px;" onclick="closeScanner()">✕ SALIR</button>
+        <button id="snap-btn" class="btn btn-light" style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); width:80px; height:80px; border-radius:50%;" onclick="captureIA()"><i class="fas fa-camera fa-2x"></i></button>
+    </div>
 
-/* ══════════════════════════════════════════════
-   API KEY — pantalla propia (sin prompt)
-══════════════════════════════════════════════ */
-function getKey() { return localStorage.getItem('gemini_key'); }
+    <script>
+        // CONFIGURACIÓN FIREBASE
+        const firebaseConfig = { apiKey: "AIzaSyCR5V_yg6aLumW_D8oFPEblHZ5ox2gTs98", authDomain: "ofertas-rapidas-yautepec.firebaseapp.com", projectId: "ofertas-rapidas-yautepec", storageBucket: "ofertas-rapidas-yautepec.firebasestorage.app", messagingSenderId: "81339635207", appId: "1:81339635207:web:26d180f92224d9a036fca2" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        let state = { products: [], clients: [], stores: [] };
+        let stream = null;
 
-function saveKey() {
-  const k = document.getElementById('key-input').value.trim();
-  if (!k || k.length < 10) { alert("La key parece inválida, verifica."); return; }
-  localStorage.setItem('gemini_key', k);
-  document.getElementById('key-screen').style.display = 'none';
-  start(); // arrancar cámara recién guardada la key
-}
-
-function changeKey() {
-  // Muestra la pantalla de key sin borrar la actual (la deja en el input)
-  const existing = getKey() || '';
-  document.getElementById('key-input').value = existing;
-  document.getElementById('key-screen').style.display = 'flex';
-}
-
-/* ══════════════════════════════════════════════
-   ARRANQUE
-══════════════════════════════════════════════ */
-if (!getKey() || getKey().length < 10) {
-  // Falta la key → mostrar pantalla de configuración
-  document.getElementById('key-screen').style.display = 'flex';
-} else {
-  start();
-}
-
-async function start() {
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 } }
-    });
-    document.getElementById('camera-feed').srcObject = s;
-  } catch(e) { alert("Error al iniciar cámara: " + e.message); }
-}
-
-/* ══════════════════════════════════════════════
-   CAPTURA
-══════════════════════════════════════════════ */
-function capture() {
-  const v = document.getElementById('camera-feed');
-  if (!v.srcObject || v.videoWidth === 0) { alert("Cámara no lista, espera un momento."); return; }
-  const canvas = document.createElement('canvas');
-  canvas.width = v.videoWidth; canvas.height = v.videoHeight;
-  canvas.getContext('2d').drawImage(v, 0, 0);
-  canvas.toBlob(blob => {
-    currentBlob = blob;
-    document.getElementById('result-photo').src = URL.createObjectURL(blob);
-    analyze(blob);
-  }, 'image/jpeg', 0.88);
-}
-
-/* ══════════════════════════════════════════════
-   IA — GEMINI
-══════════════════════════════════════════════ */
-async function analyze(blob) {
-  document.getElementById('loader').style.display = 'flex';
-  const reader = new FileReader();
-  reader.onloadend = async () => {
-    const base64 = reader.result.split(',')[1];
-    const key    = getKey();
-
-    // Si por alguna razón no hay key, mostrar pantalla (no prompt)
-    if (!key) {
-      document.getElementById('loader').style.display = 'none';
-      document.getElementById('key-screen').style.display = 'flex';
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: base64 } },
-              { text: "Marca y producto de esta etiqueta. Responde SOLO el nombre en MAYÚSCULAS, sin explicaciones." }
-            ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 100 }
-          })
+        function saveGeminiKey() {
+            const val = document.getElementById('user-gemini-key').value.trim();
+            if(val) { localStorage.setItem('yaute_key_val', val); location.reload(); }
         }
-      );
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error?.message || `HTTP ${res.status}`);
-      document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
-    } catch(e) {
-      alert("Error IA: " + e.message);
-    }
 
-    document.getElementById('loader').style.display   = 'none';
-    document.getElementById('result-view').style.display = 'flex';
-  };
-  reader.readAsDataURL(blob);
-}
+        function startSync() {
+            if(!localStorage.getItem('yaute_key_val')) {
+                document.getElementById('key-config-modal').style.display = 'flex';
+                return;
+            }
+            const appId = 'yaute-v1-shared';
+            ['products', 'clients', 'stores'].forEach(col => {
+                db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col).onSnapshot(snap => {
+                    state[col] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    document.getElementById('status-dot').style.background = "green";
+                });
+            });
+            setupAuto('in-tienda', 'sug-tienda', 'stores');
+            setupAuto('in-cliente', 'sug-cliente', 'clients');
+            setupAuto('in-producto', 'sug-producto', 'products');
+        }
 
-/* ══════════════════════════════════════════════
-   ENVÍO + GUARDADO SIMULTÁNEO (sin cambios)
-══════════════════════════════════════════════ */
-async function shareAndSave() {
-  const nombre  = document.getElementById('field-desc').value;
-  const anaquel = document.getElementById('field-anaquel').value || "0";
-  const venta   = document.getElementById('field-venta').value   || "0";
+        function setupAuto(inpId, boxId, key) {
+            const inp = document.getElementById(inpId);
+            const box = document.getElementById(boxId);
+            inp.oninput = () => {
+                const val = inp.value.toUpperCase();
+                if(!val) { box.classList.add('d-none'); return; }
+                const filtered = state[key].map(x => (x.nombre || "").toUpperCase()).filter(s => s.includes(val)).slice(0, 5);
+                box.innerHTML = filtered.map(s => `<div class="sug-item" onclick="selectSug('${inpId}','${boxId}','${s}','${key}')">${s}</div>`).join('');
+                box.classList.remove('d-none');
+            };
+        }
 
-  const textoWhatsApp = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO: $${venta}`;
+        function selectSug(inpId, boxId, val, key) {
+            document.getElementById(inpId).value = val;
+            document.getElementById(boxId).classList.add('d-none');
+            if(key === 'products') {
+                const p = state.products.find(x => x.nombre.toUpperCase() === val);
+                if(p) { document.getElementById('in-costo').value = p.costo; document.getElementById('in-precio').value = p.precio; }
+            }
+        }
 
-  // Firebase en segundo plano — no bloquea el share
-  uploadData(nombre, anaquel, venta);
+        async function openScanner() {
+            document.getElementById('home-selector').style.display = 'none';
+            document.getElementById('ia-modal').style.display = 'flex';
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            document.getElementById('cam-preview-ia').srcObject = stream;
+        }
 
-  // Web Share API con imagen adjunta
-  if (navigator.canShare) {
-    const file = new File([currentBlob], 'oferta_yautepec.jpg', { type: 'image/jpeg' });
-    if (navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], text: textoWhatsApp });
-        setTimeout(() => location.reload(), 1500);
-      } catch(e) {
-        if (e.name !== 'AbortError') console.warn("Share error:", e.message);
-      }
-      return;
-    }
-  }
-  alert("Tu navegador no soporta el envío directo de archivos.\nActualiza Chrome o usa Safari en iOS.");
-}
+        function closeScanner() {
+            if(stream) stream.getTracks().forEach(t => t.stop());
+            document.getElementById('ia-modal').style.display = 'none';
+            document.getElementById('home-selector').style.display = 'flex';
+        }
 
-async function uploadData(nombre, anaquel, venta) {
-  try {
-    const path = `productos/${Date.now()}.jpg`;
-    const ref  = storage.ref(path);
-    await ref.put(currentBlob);
-    const fotoUrl = await ref.getDownloadURL();
-    await db.collection("productos").add({
-      nombre,
-      nombre_busqueda: nombre.toLowerCase(),
-      precio_anaquel:  parseFloat(anaquel),
-      precio_venta:    parseFloat(venta),
-      foto:            fotoUrl,
-      creado:          firebase.firestore.FieldValue.serverTimestamp()
-    });
-    console.log("✅ Guardado en Firebase");
-  } catch(e) {
-    console.error("Error Firebase:", e);
-  }
-}
-</script>
+        async function captureIA() {
+            const key = localStorage.getItem('yaute_key_val');
+            const video = document.getElementById('cam-preview-ia');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            document.getElementById('snap-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                // LLAMADA COMPATIBLE CON LLAVES AQ
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: "MARCA Y PRODUCTO. TODO EN MAYÚSCULAS." }] }] })
+                });
+                const d = await res.json();
+                const nombre = d.candidates[0].content.parts[0].text.trim();
+                
+                const existe = state.products.find(p => p.nombre.toUpperCase() === nombre.toUpperCase());
+                if(existe) alert("⚠️ PRODUCTO YA EXISTE");
+
+                const v = prompt("VENTA:", existe ? existe.precio : "");
+                const a = prompt("ANAQUEL:", existe ? existe.costo : "");
+
+                if(v) {
+                    const blob = await (await fetch(canvas.toDataURL('image/jpeg'))).blob();
+                    const f = new File([blob], 'oferta.jpg', { type: 'image/jpeg' });
+                    if(navigator.share) await navigator.share({ files: [f], text: `🛒 *OFERTA*\n📦 ${nombre}\n💰 $${v}` });
+                    if(!existe) db.collection('artifacts/yaute-v1-shared/public/data/products').add({ nombre, costo: parseFloat(a)||0, precio: parseFloat(v) });
+                    location.reload();
+                }
+            } catch(e) { alert("Error: Llave inválida."); localStorage.removeItem('yaute_key_val'); location.reload(); }
+        }
+
+        function showTab(id) {
+            document.getElementById('home-selector').style.display = 'none';
+            document.getElementById('tab-' + id).style.display = 'block';
+        }
+
+        async function saveRecord() {
+            const t = document.getElementById('in-tienda').value.toUpperCase();
+            const c = document.getElementById('in-cliente').value.toUpperCase();
+            const p = document.getElementById('in-producto').value.toUpperCase();
+            const q = parseInt(document.getElementById('in-cantidad').value);
+            const co = parseFloat(document.getElementById('in-costo').value);
+            const pr = parseFloat(document.getElementById('in-precio').value);
+            if(!t || !c || !p) return alert("Faltan datos");
+            await db.collection('artifacts/yaute-v1-shared/public/data/sales').add({ tienda: t, cliente: c, producto: p, cantidad: q, costo: co, precio: pr, total: q*pr, fechaStr: new Date().toLocaleDateString(), timestamp: Date.now() });
+            alert("Guardado ✅");
+            location.reload();
+        }
+        window.onload = startSync;
+    </script>
 </body>
 </html>
