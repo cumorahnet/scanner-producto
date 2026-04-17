@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner Express v8.1 — Antonio Hernandez</title>
+<title>Scanner Express v8.2 — Antonio Hernandez</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -16,7 +16,7 @@
   #result-view { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; overflow-y: auto; }
   .input-f { width: 100%; background: #13131c; border: 1px solid #2a2a45; border-radius: 8px; padding: 12px; color: #fff; margin-bottom: 10px; font-family: monospace; font-size: 14px; }
   .btn { padding: 15px; border-radius: 10px; border: none; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
-  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; }
+  #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
 </style>
 </head>
 <body>
@@ -24,7 +24,7 @@
 <video id="camera-feed" autoplay playsinline muted></video>
 
 <div class="ui-overlay">
-  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS PRO v8.1</div>
+  <div style="font-weight: bold; color: var(--accent); pointer-events: auto;">SCANNER EXPRESS PRO v8.2</div>
   <button class="btn-capture" onclick="capture()"></button>
 </div>
 
@@ -33,32 +33,24 @@
   <div style="padding: 20px;">
     <label style="font-size: 10px; color: #6b6b8a;">PRODUCTO IDENTIFICADO</label>
     <textarea id="field-desc" class="input-f" rows="2"></textarea>
-    
     <div style="display: flex; gap: 10px;">
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">PRECIO ANAQUEL (NUBE)</label>
-        <input type="number" id="field-anaquel" class="input-f" placeholder="0.00">
-      </div>
-      <div style="flex: 1;">
-        <label style="font-size: 10px; color: #6b6b8a;">PRECIO VENTA (CLIENTE)</label>
-        <input type="number" id="field-venta" class="input-f" placeholder="0.00">
-      </div>
+      <div style="flex: 1;"><label style="font-size: 10px; color: #6b6b8a;">ANAQUEL $</label><input type="number" id="field-anaquel" class="input-f" placeholder="0.00"></div>
+      <div style="flex: 1;"><label style="font-size: 10px; color: #6b6b8a;">VENTA $</label><input type="number" id="field-venta" class="input-f" placeholder="0.00"></div>
     </div>
-    
     <button class="btn" style="background:var(--accent); color:#000;" onclick="shareAndSave()">📲 ENVIAR Y GUARDAR NUBE</button>
     <button class="btn" style="background:transparent; border: 1px solid #ff4466; color:#ff4466;" onclick="location.reload()">CANCELAR</button>
   </div>
 </div>
 
 <div id="loader">
-  <div style="border: 4px solid #2a2a45; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-  <p style="margin-top: 15px; font-size: 12px;">PROCESANDO...</p>
+  <div id="spinner" style="border: 4px solid #2a2a45; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+  <p id="loader-text" style="margin-top: 15px; font-size: 12px;">PROCESANDO...</p>
+  <button id="btn-error" class="btn" style="display:none; background:#ff4466; color:#fff;" onclick="location.reload()">REINTENTAR</button>
 </div>
 
 <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
 <script>
-// CONFIGURACIÓN DE FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyB3kiLskvkV6cJ0byaCg_zqe-GIWM3jelI",
   authDomain: "ofertas-rapidas-con-scanner.firebaseapp.com",
@@ -73,10 +65,8 @@ const storage = firebase.storage();
 let currentBlob = null;
 
 async function start() {
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    document.getElementById('camera-feed').srcObject = s;
-  } catch(e) { alert("Error al iniciar cámara"); }
+  const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  document.getElementById('camera-feed').srcObject = s;
 }
 start();
 
@@ -93,54 +83,63 @@ function capture() {
 }
 
 async function analyze(blob) {
-  document.getElementById('loader').style.display = 'flex';
+  const loader = document.getElementById('loader');
+  const loaderText = document.getElementById('loader-text');
+  loader.style.display = 'flex';
+  
   const reader = new FileReader();
   reader.onloadend = async () => {
     const base64 = reader.result.split(',')[1];
-    const key = localStorage.getItem('gemini_key') || prompt("Ingresa tu Gemini API Key:");
-    if(key) localStorage.setItem('gemini_key', key);
+    let key = localStorage.getItem('gemini_key');
+    
+    if(!key) {
+      key = prompt("Ingresa tu Gemini API Key:");
+      if(key) localStorage.setItem('gemini_key', key);
+    }
 
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`, {
+      // Cambio a v1 y modelo 1.5-flash para máxima compatibilidad
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`, {
         method: 'POST',
-        body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Marca y producto. Responde solo el nombre en MAYÚSCULAS." }] }] })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: "Marca y producto. Responde solo el nombre en MAYÚSCULAS." }] }]
+        })
       });
+
       const d = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(d.error ? d.error.message : "Error desconocido");
+      }
+
       document.getElementById('field-desc').value = d.candidates[0].content.parts[0].text.trim();
-    } catch(e) { alert("Error de comunicación con la IA"); }
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('result-view').style.display = 'flex';
+      loader.style.display = 'none';
+      document.getElementById('result-view').style.display = 'flex';
+
+    } catch(e) {
+      loaderText.innerHTML = `<span style="color:#ff4466;">ERROR: ${e.message}</span>`;
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btn-error').style.display = 'block';
+    }
   };
   reader.readAsDataURL(blob);
 }
 
-// ENVÍO Y GUARDADO SIMULTÁNEO
 async function shareAndSave() {
   const nombre = document.getElementById('field-desc').value;
   const anaquel = document.getElementById('field-anaquel').value || "0";
   const venta = document.getElementById('field-venta').value || "0";
-  
-  // El mensaje de WhatsApp solo lleva el precio de venta
   const textoWhatsApp = `🛒 *OFERTA RÁPIDA*\n📦 PRODUCTO: ${nombre}\n💰 PRECIO: $${venta}`;
 
-  // 1. Iniciar subida a Firebase (Segundo plano)
   uploadData(nombre, anaquel, venta);
 
-  // 2. Abrir menú de compartir con foto real y texto (Primer plano)
   if (navigator.share) {
-    const file = new File([currentBlob], 'oferta_yautepec.jpg', { type: 'image/jpeg' });
+    const file = new File([currentBlob], 'oferta.jpg', { type: 'image/jpeg' });
     try {
-      await navigator.share({
-        files: [file],
-        text: textoWhatsApp
-      });
-      // Recarga para el siguiente escaneo
-      setTimeout(() => location.reload(), 1500);
-    } catch (e) {
-      console.log("Compartir omitido");
-    }
-  } else {
-    alert("Tu navegador no soporta el envío directo de archivos.");
+      await navigator.share({ files: [file], text: textoWhatsApp });
+      setTimeout(() => location.reload(), 2000);
+    } catch (e) { console.log("Compartir cancelado"); }
   }
 }
 
@@ -150,20 +149,15 @@ async function uploadData(nombre, anaquel, venta) {
     const ref = storage.ref(path);
     await ref.put(currentBlob);
     const fotoUrl = await ref.getDownloadURL();
-    
-    // Guardamos ambos precios en la nube para tu administración
     await db.collection("productos").add({
-      nombre: nombre,
+      nombre,
       nombre_busqueda: nombre.toLowerCase(),
       precio_anaquel: parseFloat(anaquel),
       precio_venta: parseFloat(venta),
       foto: fotoUrl,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log("Datos guardados en la nube exitosamente.");
-  } catch (e) {
-    console.error("Error al guardar en la nube:", e);
-  }
+  } catch (e) { console.error("Error nube:", e); }
 }
 </script>
 </body>
