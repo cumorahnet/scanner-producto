@@ -221,7 +221,7 @@
                         body: JSON.stringify({
                             contents: [{ parts: [
                                 { inline_data: { mime_type: 'image/jpeg', data: b64 } },
-                                { text: "Identifica marca y nombre del producto en la etiqueta. Responde SOLO el nombre en MAYÚSCULAS, sin explicaciones." }
+                                { text: "Eres un lector experto de etiquetas de productos de consumo en México. Analiza la imagen y extrae: 1) Marca comercial, 2) Nombre del producto, 3) Presentación (gramaje, volumen, número de piezas, sabor o variante si aparece). Responde SOLO con el resultado en UNA LÍNEA en MAYÚSCULAS con el formato: MARCA NOMBRE PRESENTACIÓN. Sin explicaciones, sin puntos, sin saltos de línea." }
                             ]}],
                             generationConfig: { temperature: 0.1, maxOutputTokens: 100 }
                         })
