@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Yaute v34.1 — Sistema Completo</title>
+    <link rel="icon" href="logo.png">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -233,7 +234,7 @@
             </div>
         </div>
         <small class="text-muted d-block mb-3" style="font-size:0.65rem; text-align:center;">
-            💡 El precio de venta se sugiere automáticamente (+$20 sobre el costo)
+            💡 Precio sugerido y redondeado automáticamente al múltiplo de $10 más cercano
         </small>
         <button class="btn btn-success w-100 py-3 rounded-pill fw-bold mb-2" onclick="confirmPrices()">📲 COMPARTIR Y GUARDAR</button>
         <button class="btn btn-outline-secondary w-100 rounded-pill" onclick="cancelPrices()" style="border:none;">CANCELAR — VOLVER A CÁMARA</button>
@@ -254,12 +255,29 @@
     </div>
 </div>
 
+<!-- ══ MODAL CONFIRMACIÓN DUPLICADO ═════════════════════════════ -->
+<div id="dup-confirm-modal" style="position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:21000; display:none; align-items:flex-end; justify-content:center; padding:16px;">
+    <div style="background:white; border-radius:24px; padding:22px; width:100%; max-width:420px;">
+        <p class="fw-bold mb-1" style="font-size:0.7rem; color:#94a3b8; letter-spacing:1px;">⚠ POSIBLE DUPLICADO</p>
+        <p style="font-size:0.82rem; color:#0f172a; margin-bottom:14px;">
+            El producto escaneado <strong id="dcm-escaneado"></strong> coincide parcialmente con los siguientes registros. ¿Es alguno de estos?
+        </p>
+        <div id="dcm-candidatos" style="max-height:200px; overflow-y:auto; margin-bottom:14px;"></div>
+        <button class="btn btn-warning w-100 rounded-pill fw-bold mb-2" onclick="skipDuplicate()">
+            NO — ES UN PRODUCTO NUEVO
+        </button>
+        <button class="btn btn-outline-secondary w-100 rounded-pill" onclick="closeDupConfirm()" style="border:none; font-size:0.8rem;">
+            CANCELAR — VOLVER A CÁMARA
+        </button>
+    </div>
+</div>
+
 <!-- ══ HEADER ════════════════════════════════════════════════════ -->
 <header>
     <div class="d-flex flex-column align-items-center">
         <div class="d-flex align-items-center">
             <h6 class="m-0 fw-bold">Ofertas Rápidas Yaute</h6>
-            <img src="logo.png" alt="" style="height:25px; margin-left:10px;" onerror="this.style.display='none'">
+            <img src="logo.png" alt="Yaute" style="height:28px; margin-left:10px; border-radius:6px;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f172a'/%3E%3Ctext x='50' y='62' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='36' font-weight='900' fill='%233b82f6'%3EORY%3C/text%3E%3C/svg%3E'; this.onerror=null;">
             <div id="status-dot" class="status-dot" style="background:orange;"></div>
         </div>
         <div style="margin-top:6px;"><span class="version-badge">v34.1</span></div>
@@ -330,7 +348,7 @@
 <!-- ══ TICKET RENDER ═════════════════════════════════════════════ -->
 <div id="ticket-render">
     <div style="text-align:center; margin-bottom:25px;">
-        <img src="logo.png" alt="" style="width:140px;" onerror="this.style.display='none'">
+        <img src="logo.png" alt="Yaute" style="width:120px; border-radius:10px;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f172a'/%3E%3Ctext x='50' y='62' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='36' font-weight='900' fill='%233b82f6'%3EORY%3C/text%3E%3C/svg%3E'; this.onerror=null;">
         <div style="font-size:1.8rem; font-weight:900; margin-top:15px; color:black;">OFERTAS RÁPIDAS YAUTE</div>
     </div>
     <div id="t-fecha" style="text-align:center; margin-bottom:20px; font-size:1.1rem; color:black;"></div>
@@ -868,18 +886,33 @@ function closeScanner() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   SCANNER — AUTO PRECIO VENTA (+$20 sobre costo)
+   SCANNER — PRECIO SUGERIDO REDONDEADO A MÚLTIPLOS DE $10
+   Regla: costo + margen $5 mínimo → redondear al múltiplo de 10
+   cercano según el residuo:
+     residuo  < 5 → bajar al múltiplo inferior (23 → 20)
+     residuo >= 5 → subir al múltiplo superior  (25 → 30, 26 → 30)
+   Ejemplos:
+     costo $18 → base $23 → redondea a $20
+     costo $22 → base $27 → redondea a $30
+     costo $31 → base $36 → redondea a $40
+     costo $45 → base $50 → redondea a $50
 ══════════════════════════════════════════════════════════════════ */
+function redondearA10(valor) {
+    var entero = Math.ceil(valor);      // siempre trabajar con entero
+    var resto  = entero % 10;
+    if (resto === 0) return entero;
+    return resto < 5 ? entero - resto : entero + (10 - resto);
+}
+
 function autoSuggestVenta(costoStr) {
-    const costo = parseFloat(costoStr);
-    const ventaInput = document.getElementById('pm-venta');
-    // Solo sugiere si el campo de venta está vacío o tenía el valor anterior sugerido
+    var costo = parseFloat(costoStr);
+    var ventaInput = document.getElementById('pm-venta');
     if (!isNaN(costo) && costo > 0) {
-        const prev = parseFloat(ventaInput.dataset.suggested || '0');
-        const current = parseFloat(ventaInput.value || '0');
-        // Actualiza si el campo está vacío o si el usuario no ha tocado el precio sugerido
+        var prev    = parseFloat(ventaInput.dataset.suggested || '0');
+        var current = parseFloat(ventaInput.value || '0');
         if (!ventaInput.value || Math.abs(current - prev) < 0.01) {
-            const sugerido = Math.round((costo + 20) * 100) / 100;
+            var base     = costo + 5;
+            var sugerido = redondearA10(base);
             ventaInput.value = sugerido.toFixed(2);
             ventaInput.dataset.suggested = sugerido.toFixed(2);
         }
@@ -938,33 +971,48 @@ async function captureIA() {
         if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
         pendingNombre = data.candidates[0].content.parts[0].text.trim().toUpperCase();
 
-        // Detección de duplicado (búsqueda flexible)
-        const existente = window.state.products.find(p => {
+        // ── Detección de duplicados en 3 niveles ──────────────────────
+        // Nivel 1: coincidencia exacta
+        // Nivel 2: uno contiene al otro (>= 6 chars)
+        // Nivel 3: >= 2 palabras clave de 4+ chars en común
+        const palabrasEsc = pendingNombre.split(' ').filter(w => w.length >= 4);
+        const candidatos = window.state.products.filter(p => {
             const g = (p.nombre||'').toUpperCase().trim();
-            return g === pendingNombre || pendingNombre.includes(g) || g.includes(pendingNombre);
+            if (g === pendingNombre) return true;
+            if (g.length >= 6 && (pendingNombre.includes(g) || g.includes(pendingNombre))) return true;
+            const pg = g.split(' ').filter(w => w.length >= 4);
+            return palabrasEsc.filter(w => pg.includes(w)).length >= 2;
         });
-        pendingExisteId = existente ? existente.id : null;
 
-        // Agrupar la descripción en líneas de máx 30 chars para que no se desborde en pantalla
-        const palabras = pendingNombre.split(' ');
-        let lineas = [], linea = '';
-        for (const p of palabras) {
-            if ((linea + ' ' + p).trim().length > 30 && linea) { lineas.push(linea.trim()); linea = p; }
-            else linea = (linea + ' ' + p).trim();
-        }
-        if (linea) lineas.push(linea);
-        document.getElementById('pm-nombre').value = lineas.join('\n');
-        document.getElementById('pm-venta').value  = existente ? (existente.precio||'') : '';
-        document.getElementById('pm-costo').value  = existente ? (existente.costo ||'') : '';
+        document.getElementById('pm-nombre').value = pendingNombre;
 
-        const badge = document.getElementById('dup-badge');
-        if (existente) {
-            document.getElementById('dup-text').innerHTML = `<strong>¡Ya registrado!</strong><br>"${existente.nombre}"<br>Venta: $${existente.precio||0} | Costo: $${existente.costo||0}<br><em>Puedes corregir antes de guardar.</em>`;
+        if (candidatos.length === 1 && (candidatos[0].nombre||'').toUpperCase().trim() === pendingNombre) {
+            // Coincidencia exacta → panel directo con badge
+            pendingExisteId = candidatos[0].id;
+            document.getElementById('pm-venta').value = candidatos[0].precio || '';
+            document.getElementById('pm-costo').value = candidatos[0].costo  || '';
+            const badge = document.getElementById('dup-badge');
+            document.getElementById('dup-text').innerHTML =
+                '<strong>¡Ya registrado!</strong><br>"' + candidatos[0].nombre + '"<br>' +
+                'Venta: $' + (candidatos[0].precio||0) + ' | Costo: $' + (candidatos[0].costo||0) +
+                '<br><em>Precios precargados, puedes modificar.</em>';
             badge.classList.add('show');
+            document.getElementById('price-modal').style.display = 'flex';
+        } else if (candidatos.length >= 1) {
+            // Similares → preguntar al usuario
+            pendingExisteId = null;
+            document.getElementById('pm-venta').value = '';
+            document.getElementById('pm-costo').value = '';
+            document.getElementById('dup-badge').classList.remove('show');
+            showDupConfirm(candidatos);
         } else {
-            badge.classList.remove('show');
+            // Producto nuevo
+            pendingExisteId = null;
+            document.getElementById('pm-venta').value = '';
+            document.getElementById('pm-costo').value = '';
+            document.getElementById('dup-badge').classList.remove('show');
+            document.getElementById('price-modal').style.display = 'flex';
         }
-        document.getElementById('price-modal').style.display = 'flex';
 
     } catch(e) {
         toastScanner("Error IA: " + e.message, '#ef4444');
@@ -972,6 +1020,54 @@ async function captureIA() {
         snapIcon.className = 'fas fa-camera fa-2x text-primary';
         document.getElementById('snap-btn').style.pointerEvents = 'auto';
     }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCANNER — GESTIÓN DE DUPLICADOS
+══════════════════════════════════════════════════════════════════ */
+function showDupConfirm(candidatos) {
+    document.getElementById('dcm-escaneado').textContent = '"' + pendingNombre + '"';
+    document.getElementById('dcm-candidatos').innerHTML = candidatos.map(function(p) {
+        return '<div onclick="selectDuplicate('' + p.id + '',' + (p.precio||0) + ',' + (p.costo||0) + ')"' +
+               ' style="background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer;">' +
+               '<div style="font-weight:800; font-size:0.85rem; color:#0f172a; text-transform:uppercase;">' + p.nombre + '</div>' +
+               '<div style="font-size:0.72rem; color:#64748b; margin-top:2px;">' +
+               'Venta: <span style="color:#10b981; font-weight:700;">$' + (p.precio||0) + '</span> &nbsp;|&nbsp; ' +
+               'Costo: <span style="color:#ef4444; font-weight:700;">$' + (p.costo||0) + '</span></div>' +
+               '<div style="font-size:0.65rem; color:#3b82f6; margin-top:4px; font-weight:700;">✓ SÍ, ES ESTE PRODUCTO</div>' +
+               '</div>';
+    }).join('');
+    document.getElementById('dup-confirm-modal').style.display = 'flex';
+}
+
+function selectDuplicate(id, precio, costo) {
+    pendingExisteId = id;
+    document.getElementById('pm-venta').value = precio || '';
+    document.getElementById('pm-costo').value = costo  || '';
+    var p = window.state.products.find(function(x){ return x.id === id; });
+    if (p) {
+        var badge = document.getElementById('dup-badge');
+        document.getElementById('dup-text').innerHTML =
+            '<strong>Seleccionado:</strong> "' + p.nombre + '"<br>Precios precargados, puedes modificar.';
+        badge.classList.add('show');
+    }
+    if (!precio && costo) autoSuggestVenta(String(costo));
+    document.getElementById('dup-confirm-modal').style.display = 'none';
+    document.getElementById('price-modal').style.display = 'flex';
+}
+
+function skipDuplicate() {
+    pendingExisteId = null;
+    document.getElementById('dup-badge').classList.remove('show');
+    document.getElementById('pm-venta').value = '';
+    document.getElementById('pm-costo').value = '';
+    document.getElementById('dup-confirm-modal').style.display = 'none';
+    document.getElementById('price-modal').style.display = 'flex';
+}
+
+function closeDupConfirm() {
+    document.getElementById('dup-confirm-modal').style.display = 'none';
+    pendingNombre = ''; pendingCanvas = null; pendingExisteId = null;
 }
 
 /* ══════════════════════════════════════════════════════════════════
