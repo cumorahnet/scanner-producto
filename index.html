@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Yaute v34.2 — Sistema Completo</title>
+    <title>Yaute v34.3 — Sistema Completo</title>
     <link rel="icon" href="logo.png">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -114,7 +114,7 @@
 <div id="splash-screen">
     <img src="logo.png" alt="Logo Yaute" style="width:120px; height:auto; margin-bottom:24px;" onerror="this.style.display='none'">
     <div class="splash-loader"></div>
-    <div style="margin-top:20px; font-size:0.8rem; font-weight:900; letter-spacing:2px; color:var(--primary);">VERSION 34.2</div>
+    <div style="margin-top:20px; font-size:0.8rem; font-weight:900; letter-spacing:2px; color:var(--primary);">VERSION 34.3</div>
 </div>
 
 <div id="toast-alert"></div>
@@ -283,7 +283,7 @@
             <img src="logo.png" alt="Yaute" style="height:28px; margin-left:10px; border-radius:6px;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f172a'/%3E%3Ctext x='50' y='62' text-anchor='middle' font-family='Arial Black,sans-serif' font-size='36' font-weight='900' fill='%233b82f6'%3EORY%3C/text%3E%3C/svg%3E'; this.onerror=null;">
             <div id="status-dot" class="status-dot" style="background:orange;"></div>
         </div>
-        <div style="margin-top:6px;"><span class="version-badge">v34.2</span></div>
+        <div style="margin-top:6px;"><span class="version-badge">v34.3</span></div>
     </div>
 </header>
 
@@ -1056,15 +1056,25 @@ async function captureIA() {
 function showDupConfirm(candidatos) {
     document.getElementById('dcm-escaneado').textContent = '"' + pendingNombre + '"';
     document.getElementById('dcm-candidatos').innerHTML = candidatos.map(function(p) {
-        return '<div onclick="selectDuplicate('' + p.id + '',' + (p.precio||0) + ',' + (p.costo||0) + ')"' +
+        // Usar data-attributes para evitar problemas de comillas en onclick
+        var safeId    = (p.id    || '').replace(/'/g, '');
+        var safePrecio = parseFloat(p.precio) || 0;
+        var safeCosto  = parseFloat(p.costo)  || 0;
+        var safeNombre = (p.nombre || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return '<div class="dup-candidate" data-id="' + safeId + '" data-precio="' + safePrecio + '" data-costo="' + safeCosto + '"' +
                ' style="background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer;">' +
-               '<div style="font-weight:800; font-size:0.85rem; color:#0f172a; text-transform:uppercase;">' + p.nombre + '</div>' +
+               '<div style="font-weight:800; font-size:0.85rem; color:#0f172a; text-transform:uppercase;">' + safeNombre + '</div>' +
                '<div style="font-size:0.72rem; color:#64748b; margin-top:2px;">' +
-               'Venta: <span style="color:#10b981; font-weight:700;">$' + (p.precio||0) + '</span> &nbsp;|&nbsp; ' +
-               'Costo: <span style="color:#ef4444; font-weight:700;">$' + (p.costo||0) + '</span></div>' +
+               'Venta: <span style="color:#10b981; font-weight:700;">$' + safePrecio + '</span> &nbsp;|&nbsp; ' +
+               'Costo: <span style="color:#ef4444; font-weight:700;">$' + safeCosto + '</span></div>' +
                '<div style="font-size:0.65rem; color:#3b82f6; margin-top:4px; font-weight:700;">✓ SÍ, ES ESTE PRODUCTO</div>' +
                '</div>';
     }).join('');
+    // Usar event delegation en lugar de onclick inline para evitar bugs de comillas
+    document.getElementById('dcm-candidatos').onclick = function(e) {
+        var card = e.target.closest('.dup-candidate');
+        if (card) selectDuplicate(card.dataset.id, parseFloat(card.dataset.precio), parseFloat(card.dataset.costo));
+    };
     document.getElementById('dup-confirm-modal').style.display = 'flex';
 }
 
